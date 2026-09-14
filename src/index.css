@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #f6f5fb;
+  color: #1e1b2e;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #0f0e17;
+    color: #f1f0f7;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Hide scrollbars on the mobile-width app frame without hiding scroll itself */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

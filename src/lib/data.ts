@@ -1,0 +1,187 @@
+import { supabase } from './supabaseClient'
+import { semesterFromRow, subjectFromRow, noteFromRow, materialFromRow } from './mappers'
+import type { Note, Semester, Subject, NoteMaterial } from '../types/domain'
+
+// Every call assumes an authenticated session — RLS enforces that a user
+// only ever sees their own rows, so no explicit user_id filters are needed
+// on selects (they're still set on inserts).
+
+export async function listSemesters(): Promise<Semester[]> {
+  const { data, error } = await supabase
+    .from('semesters')
+    .select('*')
+    .order('start_date', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(semesterFromRow)
+}
+
+export async function createSemester(userId: string, name: string): Promise<Semester> {
+  const { data, error } = await supabase
+    .from('semesters')
+    .insert({ user_id: userId, name, is_active: true, start_date: null, end_date: null })
+    .select()
+    .single()
+  if (error) throw error
+  return semesterFromRow(data)
+}
+
+export async function listSubjects(semesterId?: string): Promise<Subject[]> {
+  let query = supabase.from('subjects').select('*').order('created_at', { ascending: true })
+  if (semesterId) query = query.eq('semester_id', semesterId)
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []).map(subjectFromRow)
+}
+
+export async function createSubject(
+  userId: string,
+  semesterId: string,
+  name: string,
+  color: string,
+  professorName?: string,
+): Promise<Subject> {
+  const { data, error } = await supabase
+    .from('subjects')
+    .insert({
+      user_id: userId,
+      semester_id: semesterId,
+      name,
+      color,
+      professor_name: professorName ?? null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return subjectFromRow(data)
+}
+
+export async function deleteSubject(id: string): Promise<void> {
+  const { error } = await supabase.from('subjects').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function listNotes(subjectId?: string): Promise<Note[]> {
+  let query = supabase.from('notes').select('*').order('session_date', { ascending: false })
+  if (subjectId) query = query.eq('subject_id', subjectId)
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []).map(noteFromRow)
+}
+
+export async function findNoteForSubjectAndDate(
+  subjectId: string,
+  sessionDate: string,
+): Promise<Note | null> {
+  const { data, error } = await supabase
+    .from('notes')
+    .select('*')
+    .eq('subject_id', subjectId)
+    .eq('session_date', sessionDate)
+    .maybeSingle()
+  if (error) throw error
+  return data ? noteFromRow(data) : null
+}
+
+export async function createNote(
+  userId: string,
+  subjectId: string,
+  sessionDate: string,
+  captureMode: Note['captureMode'],
+): Promise<Note> {
+  const { data, error } = await supabase
+    .from('notes')
+    .insert({
+      user_id: userId,
+      subject_id: subjectId,
+      session_date: sessionDate,
+      title: `Class note — ${sessionDate}`,
+      capture_mode: captureMode,
+      content: '',
+      raw_transcript: null,
+      audio_path: null,
+      transcription_status: captureMode === 'voice' ? 'pending' : 'none',
+      transcription_engine: null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return noteFromRow(data)
+}
+
+export async function updateNote(
+  id: string,
+  patch: Partial<Pick<Note, 'title' | 'content' | 'rawTranscript' | 'transcriptionStatus' | 'audioPath'>>,
+): Promise<Note> {
+  const dbPatch: Record<string, unknown> = {}
+  if (patch.title !== undefined) dbPatch.title = patch.title
+  if (patch.content !== undefined) dbPatch.content = patch.content
+  if (patch.rawTranscript !== undefined) dbPatch.raw_transcript = patch.rawTranscript
+  if (patch.transcriptionStatus !== undefined) dbPatch.transcription_status = patch.transcriptionStatus
+  if (patch.audioPath !== undefined) dbPatch.audio_path = patch.audioPath
+
+  const { data, error } = await supabase.from('notes').update(dbPatch).eq('id', id).select().single()
+  if (error) throw error
+  return noteFromRow(data)
+}
+
+export async function deleteNote(id: string): Promise<void> {
+  const { error } = await supabase.from('notes').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function listMaterials(noteId: string): Promise<NoteMaterial[]> {
+  const { data, error } = await supabase
+    .from('note_materials')
+    .select('*')
+    .eq('note_id', noteId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map(materialFromRow)
+}
+
+export async function attachMaterial(
+  userId: string,
+  noteId: string,
+  file: File,
+): Promise<NoteMaterial> {
+  const path = `${userId}/${noteId}/${Date.now()}-${file.name}`
+  const { error: uploadError } = await supabase.storage.from('note-materials').upload(path, file)
+  if (uploadError) throw uploadError
+
+  const { data, error } = await supabase
+    .from('note_materials')
+    .insert({
+      user_id: userId,
+      note_id: noteId,
+      file_path: path,
+      file_name: file.name,
+      file_type: file.type || null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return materialFromRow(data)
+}
+
+export async function removeMaterial(material: NoteMaterial): Promise<void> {
+  await supabase.storage.from('note-materials').remove([material.filePath])
+  const { error } = await supabase.from('note_materials').delete().eq('id', material.id)
+  if (error) throw error
+}
+
+export async function getMaterialUrl(filePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('note-materials')
+    .createSignedUrl(filePath, 60 * 60)
+  if (error) throw error
+  return data.signedUrl
+}
+
+export async function uploadLectureAudio(userId: string, noteId: string, blob: Blob): Promise<string> {
+  const path = `${userId}/${noteId}.webm`
+  const { error } = await supabase.storage
+    .from('lecture-audio')
+    .upload(path, blob, { upsert: true, contentType: blob.type || 'audio/webm' })
+  if (error) throw error
+  return path
+}

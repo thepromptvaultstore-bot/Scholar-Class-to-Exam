@@ -1,0 +1,47 @@
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AppShell } from './components/AppShell'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { useAuthStore } from './store/authStore'
+import AuthPage from './pages/AuthPage'
+import HomePage from './pages/HomePage'
+import NotesPage from './pages/NotesPage'
+import NoteEditorPage from './pages/NoteEditorPage'
+import PracticePage from './pages/PracticePage'
+import SlidesPage from './pages/SlidesPage'
+import SchedulePage from './pages/SchedulePage'
+
+function App() {
+  const init = useAuthStore((s) => s.init)
+
+  useEffect(() => {
+    init()
+  }, [init])
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/auth" element={<AuthPage />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/notes" element={<NotesPage />} />
+                  <Route path="/notes/:id" element={<NoteEditorPage />} />
+                  <Route path="/practice" element={<PracticePage />} />
+                  <Route path="/slides" element={<SlidesPage />} />
+                  <Route path="/schedule" element={<SchedulePage />} />
+                </Routes>
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+export default App
