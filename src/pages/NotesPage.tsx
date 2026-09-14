@@ -285,26 +285,31 @@ function NewSemesterForm(props: {
         onClick={props.onOpen}
         className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-4 text-sm text-gray-500 dark:border-gray-700"
       >
-        <Plus size={16} /> {props.asAddMore ? 'Add another semester' : 'Add a semester'}
+        <Plus size={16} /> {props.asAddMore ? 'Add another semester' : 'Add a semester or term'}
       </button>
     )
   }
   return (
-    <div className="flex gap-2 rounded-xl border border-gray-200 p-3 dark:border-gray-800">
-      <input
-        autoFocus
-        placeholder="e.g. Fall 2026"
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-        className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none dark:border-gray-700 dark:bg-gray-900"
-      />
-      <button
-        disabled={props.busy}
-        onClick={props.onSubmit}
-        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white"
-      >
-        Add
-      </button>
+    <div className="flex flex-col gap-2 rounded-xl border border-gray-200 p-3 dark:border-gray-800">
+      <label className="text-xs font-medium text-gray-500">
+        Semester or term name — courses like "PSY 101" come next, once this exists
+      </label>
+      <div className="flex gap-2">
+        <input
+          autoFocus
+          placeholder="e.g. Fall 2026"
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value)}
+          className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none dark:border-gray-700 dark:bg-gray-900"
+        />
+        <button
+          disabled={props.busy}
+          onClick={props.onSubmit}
+          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white"
+        >
+          Add
+        </button>
+      </div>
     </div>
   )
 }
