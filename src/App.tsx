@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage'
 import NotesPage from './pages/NotesPage'
 import NoteEditorPage from './pages/NoteEditorPage'
 import PracticePage from './pages/PracticePage'
+import PracticeSetPage from './pages/PracticeSetPage'
 import SlidesPage from './pages/SlidesPage'
 import SchedulePage from './pages/SchedulePage'
 
@@ -32,6 +33,7 @@ function App() {
                   <Route path="/notes" element={<NotesPage />} />
                   <Route path="/notes/:id" element={<NoteEditorPage />} />
                   <Route path="/practice" element={<PracticePage />} />
+                  <Route path="/practice/:id" element={<PracticeSetPage />} />
                   <Route path="/slides" element={<SlidesPage />} />
                   <Route path="/schedule" element={<SchedulePage />} />
                 </Routes>
