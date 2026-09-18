@@ -54,8 +54,8 @@ export default function AuthPage() {
           <div
             className="flex h-14 w-14 items-center justify-center rounded-2xl text-white"
             style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6 60%, #d946ef)',
-              boxShadow: '0 10px 24px -8px rgba(139, 92, 246, 0.6)',
+              background: 'linear-gradient(135deg, #2563eb, #4f46e5 60%, #0891b2)',
+              boxShadow: '0 10px 24px -8px rgba(37, 99, 235, 0.6)',
             }}
           >
             <GraduationCap size={28} />

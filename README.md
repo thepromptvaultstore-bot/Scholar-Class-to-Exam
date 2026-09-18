@@ -9,6 +9,11 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
 - Timetable now has a real weekly grid (like a printed university routine) plus a "Today" agenda strip that highlights what's happening now vs. next, and a "Mark attended" button on today's classes that awards XP — attendance now feeds the leveling system directly.
 - Grades/GPA groups courses by semester (or year, or term — whatever you name it), shows each group's own GPA plus one cumulative CGPA, so it works for both semester-system and year-system universities.
 
+## Theming fixes (post-launch feedback)
+
+- The app now commits to a single always-dark theme instead of switching with the OS: `@custom-variant dark (&);` in `src/index.css` forces every `dark:` Tailwind class on unconditionally, and `color-scheme: dark` is set globally. This directly fixes native `<select>` dropdown popups (course picker, letter-grade picker, etc.) rendering with illegible light/white system chrome against the dark page — `select`/`input`/`textarea` get an explicit `color-scheme: dark`, and `option` elements get explicit dark background/text colors, so the popup list now matches the app instead of falling back to the OS's light theme.
+- The color palette was swapped from an indigo→violet→fuchsia/pink gradient to a neutral indigo→blue→teal one (`#2563eb` / `#4f46e5` / `#0891b2`) across every gradient button, hero card, the aurora background, the sidebar, and the default note-subject color rotation — aiming for a look that reads as universal/tech-premium rather than gendered, for students of any gender worldwide.
+
 ## What's built (Phase 6 — Grades / GPA Calculator)
 
 - A user-editable letter-grade → GPA-points scale (`grade_scale_entries`), seeded with a standard US 4.0 scale (A=4.0 … F=0.0) that can be reset or customized per entry

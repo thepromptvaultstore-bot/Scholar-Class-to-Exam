@@ -28,7 +28,7 @@ import {
 } from '../lib/data'
 import type { Note, Semester, Subject } from '../types/domain'
 
-const SUBJECT_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#0ea5e9', '#8b5cf6']
+const SUBJECT_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#06b6d4', '#4f46e5', '#64748b']
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
 type Tab = 'all' | 'courses'

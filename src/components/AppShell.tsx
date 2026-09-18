@@ -29,8 +29,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div
             className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-lg"
             style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6 60%, #d946ef)',
-              boxShadow: '0 8px 20px -6px rgba(139, 92, 246, 0.6)',
+              background: 'linear-gradient(135deg, #2563eb, #4f46e5 60%, #0891b2)',
+              boxShadow: '0 8px 20px -6px rgba(37, 99, 235, 0.6)',
             }}
           >
             <Logo size={19} />
@@ -55,8 +55,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             style={({ isActive }) =>
               isActive
                 ? {
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6 70%, #d946ef)',
-                    boxShadow: '0 6px 16px -6px rgba(139, 92, 246, 0.6)',
+                    background: 'linear-gradient(135deg, #2563eb, #4f46e5 70%, #0891b2)',
+                    boxShadow: '0 6px 16px -6px rgba(37, 99, 235, 0.6)',
                   }
                 : undefined
             }

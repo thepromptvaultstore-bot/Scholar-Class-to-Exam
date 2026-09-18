@@ -676,8 +676,8 @@ function GradesTab({
       <div
         className="rounded-2xl p-5 text-white"
         style={{
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #d946ef 120%)',
-          boxShadow: '0 12px 28px -10px rgba(139, 92, 246, 0.55)',
+          background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 55%, #0891b2 120%)',
+          boxShadow: '0 12px 28px -10px rgba(37, 99, 235, 0.55)',
         }}
       >
         <p className="text-xs font-medium uppercase tracking-wide opacity-80">Cumulative GPA / CGPA</p>
