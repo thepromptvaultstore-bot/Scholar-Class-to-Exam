@@ -45,6 +45,7 @@ export interface NoteRow {
   audio_path: string | null
   transcription_status: TranscriptionStatus
   transcription_engine: string | null
+  share_token: string | null
   created_at: string
   updated_at: string
 }

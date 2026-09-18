@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Loader2 } from 'lucide-react'
+import { Check, ChevronLeft, Copy, Loader2, Share2 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import {
   getAttempt,
@@ -9,8 +9,10 @@ import {
   listAttempts,
   listQuestions,
   saveAnswer,
+  sharePracticeSet,
   startAttempt,
   submitAttempt,
+  unsharePracticeSet,
 } from '../lib/practice'
 import type { PracticeAnswer, PracticeAttempt, PracticeQuestion, PracticeSet } from '../types/practice'
 
@@ -28,6 +30,9 @@ export default function PracticeSetPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showShare, setShowShare] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [copied, setCopied] = useState(false)
   const pollRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -77,6 +82,49 @@ export default function PracticeSetPage() {
       setAnswers({})
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start.')
+    }
+  }
+
+  const handleToggleShare = async () => {
+    if (!set) return
+    setShowShare(true)
+    if (set.shareToken) return
+    setSharing(true)
+    setError(null)
+    try {
+      const token = await sharePracticeSet(set.id)
+      setSet((prev) => (prev ? { ...prev, shareToken: token } : prev))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create a share link.')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const handleStopSharing = async () => {
+    if (!set) return
+    setSharing(true)
+    setError(null)
+    try {
+      await unsharePracticeSet(set.id)
+      setSet((prev) => (prev ? { ...prev, shareToken: null } : prev))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not stop sharing.')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const shareUrl = set?.shareToken ? `${window.location.origin}/s/practice/${set.shareToken}` : ''
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Link is still shown selectable in the input as a fallback.
     }
   }
 
@@ -149,10 +197,47 @@ export default function PracticeSetPage() {
         <button onClick={() => navigate('/practice')} className="p-1 text-muted">
           <ChevronLeft size={20} />
         </button>
-        <h1 className="truncate text-lg font-semibold text-gray-900 dark:text-white">{set.title}</h1>
+        <h1 className="flex-1 truncate text-lg font-semibold text-gray-900 dark:text-white">{set.title}</h1>
+        <button onClick={handleToggleShare} className="p-1 text-muted hover:text-indigo-500" aria-label="Share">
+          <Share2 size={16} />
+        </button>
       </div>
 
       {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
+
+      {showShare && (
+        <div className="glass-card flex flex-col gap-2 rounded-2xl p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted">Share this {set.format} with a link</p>
+            <button onClick={() => setShowShare(false)} className="text-muted">
+              ×
+            </button>
+          </div>
+          {sharing && !set.shareToken ? (
+            <p className="text-xs text-muted">Creating link…</p>
+          ) : set.shareToken ? (
+            <>
+              <div className="flex items-center gap-2">
+                <input readOnly value={shareUrl} className="input-field flex-1 !py-2 text-xs" onFocus={(e) => e.target.select()} />
+                <button onClick={handleCopyLink} className="btn-secondary !px-3">
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted">
+                A friend with this link can take their own attempt at these questions — no account needed to view, an
+                account to attempt it themselves and get graded.
+              </p>
+              <button
+                onClick={handleStopSharing}
+                disabled={sharing}
+                className="self-start text-xs font-medium text-red-500"
+              >
+                Stop sharing
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
 
       {!attempt && (
         <>

@@ -18,6 +18,7 @@ const setFromRow = (r: Record<string, unknown>): PracticeSet => ({
   format: r.format as PracticeFormat,
   status: r.status as PracticeSet['status'],
   error: (r.error as string) ?? null,
+  shareToken: (r.share_token as string) ?? null,
   createdAt: r.created_at as string,
 })
 
@@ -163,6 +164,22 @@ export async function listAnswers(attemptId: string): Promise<PracticeAnswer[]> 
     .eq('attempt_id', attemptId)
   if (error) throw error
   return (data ?? []).map(answerFromRow)
+}
+
+function newShareToken(): string {
+  return crypto.randomUUID().replace(/-/g, '')
+}
+
+export async function sharePracticeSet(id: string): Promise<string> {
+  const token = newShareToken()
+  const { error } = await supabase.from('practice_sets').update({ share_token: token }).eq('id', id)
+  if (error) throw error
+  return token
+}
+
+export async function unsharePracticeSet(id: string): Promise<void> {
+  const { error } = await supabase.from('practice_sets').update({ share_token: null }).eq('id', id)
+  if (error) throw error
 }
 
 export async function listAttempts(practiceSetId: string): Promise<PracticeAttempt[]> {

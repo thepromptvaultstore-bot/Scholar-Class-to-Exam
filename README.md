@@ -16,6 +16,14 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
 - **A real profile page** (`/profile`, linked from the avatar in the top-right on Home and at the bottom of the desktop sidebar): editable name and university, an uploadable profile photo (new `avatars` storage bucket), and a stats strip (level, XP, day streak, note/course counts). Sign-out now lives here instead of a stray icon on Home.
 - New migration `0008_photo_notes_and_profile.sql`: adds `'photo'` to the notes capture-mode check constraint, adds `avatar_url` to `profiles`, and creates the public-read/owner-write `avatars` storage bucket.
 
+## Share a note or practice set via a link
+
+- Any note or generated practice set has a "Share" icon (top of the note editor / practice set page) that creates a public, revocable link — `/s/note/:token` or `/s/practice/:token`. No login is needed to *view* the shared page: it's a clean, branded page (Scholar logo, the note's content or the quiz's title/question count) that doubles as light organic advertising for the app, since anyone who gets sent a link sees what Scholar looks like even before signing up.
+- Viewing needs no account; *keeping* it does. A signed-in visitor gets a "Save a copy to my notes" (notes) or "Take this quiz" (practice sets) button that clones the shared item into their own account under a course they pick — for a quiz, that clone is a full, independent copy (including the answer key, never shown in the UI) so it grades normally and the two of you can compare scores. A visitor without an account gets a "Sign up free" call to action instead.
+- New edge function `get-shared` does the public lookup server-side by the exact share token (via the service role), rather than a relaxed RLS policy on `notes`/`practice_sets` — a policy that just checked "share_token is not null" would let anyone list every shared row from every user by omitting the token filter, not just fetch the one they have a link for. `get-shared` returns only the single matching, sanitized row, so the tables themselves stay exactly as owner-only as before.
+- "Stop sharing" clears the token, immediately invalidating any link already sent out; sharing again issues a brand new one.
+- New migration `0009_sharing.sql` adds the `share_token` column (unique, nullable) to both tables.
+
 ## Theming fixes (post-launch feedback)
 
 - The app now commits to a single always-dark theme instead of switching with the OS: `@custom-variant dark (&);` in `src/index.css` forces every `dark:` Tailwind class on unconditionally, and `color-scheme: dark` is set globally. This directly fixes native `<select>` dropdown popups (course picker, letter-grade picker, etc.) rendering with illegible light/white system chrome against the dark page — `select`/`input`/`textarea` get an explicit `color-scheme: dark`, and `option` elements get explicit dark background/text colors, so the popup list now matches the app instead of falling back to the OS's light theme.
@@ -68,7 +76,7 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
 
 ## Setup
 
-1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0008_photo_notes_and_profile.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
+1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0009_sharing.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
 2. **Install & run**: `npm install`, then `npm run dev`.
 3. **Deploy the edge functions** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```
@@ -76,6 +84,7 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
    supabase link --project-ref <your-project-ref>   # ref is the xxxx in https://xxxx.supabase.co
    supabase functions deploy transcribe-audio
    supabase functions deploy transcribe-image
+   supabase functions deploy get-shared
    supabase functions deploy generate-practice
    supabase functions deploy grade-attempt
    supabase functions deploy generate-slides

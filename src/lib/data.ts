@@ -176,6 +176,24 @@ export async function deleteNote(id: string): Promise<void> {
   if (error) throw error
 }
 
+// A short, URL-safe opaque token — not guessable, not tied to the note id
+// (so revoking and re-sharing invalidates any link that's already gone out).
+function newShareToken(): string {
+  return crypto.randomUUID().replace(/-/g, '')
+}
+
+export async function shareNote(id: string): Promise<string> {
+  const token = newShareToken()
+  const { error } = await supabase.from('notes').update({ share_token: token }).eq('id', id)
+  if (error) throw error
+  return token
+}
+
+export async function unshareNote(id: string): Promise<void> {
+  const { error } = await supabase.from('notes').update({ share_token: null }).eq('id', id)
+  if (error) throw error
+}
+
 export async function listMaterials(noteId: string): Promise<NoteMaterial[]> {
   const { data, error } = await supabase
     .from('note_materials')

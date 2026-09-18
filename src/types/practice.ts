@@ -13,6 +13,7 @@ export interface PracticeSet {
   format: PracticeFormat
   status: PracticeSetStatus
   error: string | null
+  shareToken: string | null
   createdAt: string
 }
 

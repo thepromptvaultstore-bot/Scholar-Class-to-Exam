@@ -37,6 +37,7 @@ export const noteFromRow = (r: NoteRow): Note => ({
   audioPath: r.audio_path,
   transcriptionStatus: r.transcription_status,
   transcriptionEngine: r.transcription_engine,
+  shareToken: r.share_token,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 })

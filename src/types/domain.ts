@@ -46,6 +46,7 @@ export interface Note {
   audioPath: string | null
   transcriptionStatus: TranscriptionStatus
   transcriptionEngine: string | null
+  shareToken: string | null
   createdAt: string
   updatedAt: string
 }

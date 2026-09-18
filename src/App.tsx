@@ -13,6 +13,7 @@ import SlidesPage from './pages/SlidesPage'
 import SlideDeckPage from './pages/SlideDeckPage'
 import SchedulePage from './pages/SchedulePage'
 import ProfilePage from './pages/ProfilePage'
+import SharedPage from './pages/SharedPage'
 
 function App() {
   const init = useAuthStore((s) => s.init)
@@ -25,6 +26,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/s/:kind/:token" element={<SharedPage />} />
         <Route
           path="/*"
           element={

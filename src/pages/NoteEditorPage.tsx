@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Camera, ChevronLeft, Download, Mic, Paperclip, Printer, Square, Trash2 } from 'lucide-react'
+import { Camera, Check, ChevronLeft, Copy, Download, Mic, Paperclip, Printer, Share2, Square, Trash2 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import {
   attachMaterial,
@@ -8,6 +8,8 @@ import {
   getMaterialUrl,
   listMaterials,
   removeMaterial,
+  shareNote,
+  unshareNote,
   uploadLectureAudio,
   updateNote,
 } from '../lib/data'
@@ -43,6 +45,9 @@ export default function NoteEditorPage() {
   const [scanning, setScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null)
   const [materialUrls, setMaterialUrls] = useState<Record<string, string>>({})
+  const [showShare, setShowShare] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [copied, setCopied] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const saveTimer = useRef<number | null>(null)
@@ -70,6 +75,7 @@ export default function NoteEditorPage() {
           audioPath: data.audio_path,
           transcriptionStatus: data.transcription_status,
           transcriptionEngine: data.transcription_engine,
+          shareToken: data.share_token,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         }
@@ -176,6 +182,50 @@ export default function NoteEditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [materials])
 
+  const handleToggleShare = async () => {
+    if (!note) return
+    setShowShare(true)
+    if (note.shareToken) return
+    setSharing(true)
+    setError(null)
+    try {
+      const token = await shareNote(note.id)
+      setNote((prev) => (prev ? { ...prev, shareToken: token } : prev))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create a share link.')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const handleStopSharing = async () => {
+    if (!note) return
+    setSharing(true)
+    setError(null)
+    try {
+      await unshareNote(note.id)
+      setNote((prev) => (prev ? { ...prev, shareToken: null } : prev))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not stop sharing.')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const shareUrl = note?.shareToken ? `${window.location.origin}/s/note/${note.shareToken}` : ''
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard API can be unavailable (e.g. non-HTTPS) — the link is still
+      // shown selectable in the input, so the student can copy it manually.
+    }
+  }
+
   const handleAttach = async (file: File) => {
     if (!user || !note) return
     setError(null)
@@ -277,6 +327,9 @@ export default function NoteEditorPage() {
           onChange={(e) => setTitle(e.target.value)}
           className="flex-1 truncate bg-transparent text-lg font-semibold text-gray-900 outline-none dark:text-white"
         />
+        <button onClick={handleToggleShare} className="p-1 text-muted hover:text-indigo-500" aria-label="Share">
+          <Share2 size={16} />
+        </button>
         <button onClick={handleDeleteNote} className="p-1 text-muted hover:text-red-500">
           <Trash2 size={16} />
         </button>
@@ -286,6 +339,39 @@ export default function NoteEditorPage() {
       </p>
 
       {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
+
+      {showShare && (
+        <div className="glass-card flex flex-col gap-2 rounded-2xl p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted">Share this note with a link</p>
+            <button onClick={() => setShowShare(false)} className="text-muted">
+              ×
+            </button>
+          </div>
+          {sharing && !note.shareToken ? (
+            <p className="text-xs text-muted">Creating link…</p>
+          ) : note.shareToken ? (
+            <>
+              <div className="flex items-center gap-2">
+                <input readOnly value={shareUrl} className="input-field flex-1 !py-2 text-xs" onFocus={(e) => e.target.select()} />
+                <button onClick={handleCopyLink} className="btn-secondary !px-3">
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted">
+                Anyone with this link can view (and save their own copy of) this note — no account needed to view.
+              </p>
+              <button
+                onClick={handleStopSharing}
+                disabled={sharing}
+                className="self-start text-xs font-medium text-red-500"
+              >
+                Stop sharing
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         {recorder.state === 'recording' ? (
