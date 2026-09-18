@@ -69,29 +69,25 @@ export default function PracticePage() {
     }
   }
 
-  if (loading) return <div className="px-5 pt-6 text-sm text-gray-400">Loading…</div>
+  if (loading) return <div className="px-5 pt-6 text-sm text-muted">Loading…</div>
 
   if (subjects.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
-        <GraduationCap size={26} className="text-indigo-500" />
-        <p className="text-sm text-gray-500">Add a subject and some notes first, then come back here.</p>
+        <GraduationCap size={26} className="text-indigo-400" />
+        <p className="text-sm text-muted">Add a course and some notes first, then come back here.</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-5 px-5 pt-6">
+    <div className="flex flex-col gap-5 px-5 pt-6 pb-10">
       <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Practice & Exam Prep</h1>
-      {error && <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500">Subject</label>
-        <select
-          value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-        >
+        <label className="mb-1 block text-xs font-medium text-muted">Course</label>
+        <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className="input-field">
           {subjects.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -102,26 +98,26 @@ export default function PracticePage() {
 
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <label className="text-xs font-medium text-gray-500">Pick notes to test yourself on</label>
+          <label className="text-xs font-medium text-muted">Pick notes to test yourself on</label>
           {notes.length > 0 && (
             <button
               onClick={() =>
                 setSelectedNoteIds(selectedNoteIds.length === notes.length ? [] : notes.map((n) => n.id))
               }
-              className="text-xs font-medium text-indigo-600"
+              className="text-xs font-medium text-indigo-500"
             >
               {selectedNoteIds.length === notes.length ? 'Clear' : 'Select all (whole course)'}
             </button>
           )}
         </div>
         {notes.length === 0 ? (
-          <p className="text-xs text-gray-400">No notes for this subject yet.</p>
+          <p className="text-xs text-muted">No notes for this course yet.</p>
         ) : (
           <div className="flex flex-col gap-1.5">
             {notes.map((n) => (
               <label
                 key={n.id}
-                className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800"
+                className="glass-card flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
               >
                 <input
                   type="checkbox"
@@ -129,7 +125,7 @@ export default function PracticePage() {
                   onChange={() => toggleNote(n.id)}
                 />
                 <span className="truncate">
-                  {n.title} <span className="text-gray-400">· {n.sessionDate}</span>
+                  {n.title} <span className="text-muted">· {n.sessionDate}</span>
                 </span>
               </label>
             ))}
@@ -138,24 +134,24 @@ export default function PracticePage() {
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500">Format</label>
+        <label className="mb-1 block text-xs font-medium text-muted">Format</label>
         <div className="flex gap-2">
           <button
             onClick={() => setFormat('quiz')}
-            className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
+            className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
               format === 'quiz'
-                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
-                : 'border-gray-300 text-gray-600 dark:border-gray-700'
+                ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                : 'border-black/10 text-muted dark:border-white/15'
             }`}
           >
             Quiz (objective)
           </button>
           <button
             onClick={() => setFormat('exam')}
-            className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
+            className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
               format === 'exam'
-                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
-                : 'border-gray-300 text-gray-600 dark:border-gray-700'
+                ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                : 'border-black/10 text-muted dark:border-white/15'
             }`}
           >
             Exam (explain in your own words)
@@ -166,7 +162,7 @@ export default function PracticePage() {
       <button
         onClick={handleGenerate}
         disabled={generating || selectedNoteIds.length === 0}
-        className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-medium text-white disabled:opacity-50"
+        className="btn-primary"
       >
         {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
         {generating ? 'Generating…' : `Generate ${format === 'quiz' ? 'quiz' : 'exam prep'}`}
@@ -180,10 +176,10 @@ export default function PracticePage() {
               <button
                 key={s.id}
                 onClick={() => navigate(`/practice/${s.id}`)}
-                className="flex items-center justify-between rounded-xl border border-gray-200 p-3 text-left text-sm dark:border-gray-800"
+                className="glass-card flex items-center justify-between rounded-2xl p-3 text-left text-sm transition-transform hover:-translate-y-0.5"
               >
                 <span className="truncate">{s.title}</span>
-                <span className="shrink-0 text-xs text-gray-400">
+                <span className="shrink-0 text-xs text-muted">
                   {s.format} · {s.status}
                 </span>
               </button>

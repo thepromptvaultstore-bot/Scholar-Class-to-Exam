@@ -2,6 +2,21 @@
 
 :root {
   color-scheme: light dark;
+  --bg: #f6f5fb;
+  --fg: #1e1b2e;
+  --card: rgba(255, 255, 255, 0.72);
+  --card-border: rgba(20, 15, 50, 0.08);
+  --muted: #6b7280;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0917;
+    --fg: #f1f0f7;
+    --card: rgba(255, 255, 255, 0.055);
+    --card-border: rgba(255, 255, 255, 0.09);
+    --muted: #9691ad;
+  }
 }
 
 html, body, #root {
@@ -11,15 +26,8 @@ html, body, #root {
 body {
   margin: 0;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background: #f6f5fb;
-  color: #1e1b2e;
-}
-
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #0f0e17;
-    color: #f1f0f7;
-  }
+  background: var(--bg);
+  color: var(--fg);
 }
 
 * {
@@ -33,4 +41,153 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* --- Premium "aurora mesh" background --------------------------------------
+   Soft, slowly-drifting gradient blobs behind the whole app instead of a flat
+   fill. Pure CSS (no image assets) so it stays crisp at any size, costs
+   nothing to load, and works offline in the packaged Android app. */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora-bg::before,
+.aurora-bg::after,
+.aurora-bg .aurora-blob {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(80px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.aurora-bg::before {
+  top: -12%;
+  left: -8%;
+  width: 46vw;
+  height: 46vw;
+  background: radial-gradient(circle at 30% 30%, #6366f1, transparent 70%);
+  animation: aurora-drift-1 22s ease-in-out infinite alternate;
+}
+.aurora-bg::after {
+  bottom: -18%;
+  right: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle at 60% 60%, #8b5cf6, transparent 70%);
+  animation: aurora-drift-2 26s ease-in-out infinite alternate;
+}
+.aurora-bg .aurora-blob {
+  top: 30%;
+  right: 20%;
+  width: 34vw;
+  height: 34vw;
+  background: radial-gradient(circle, #ec4899, transparent 70%);
+  opacity: 0.28;
+  animation: aurora-drift-3 30s ease-in-out infinite alternate;
+}
+@media (prefers-color-scheme: light) {
+  .aurora-bg::before,
+  .aurora-bg::after,
+  .aurora-bg .aurora-blob {
+    opacity: 0.22;
+  }
+}
+@keyframes aurora-drift-1 {
+  to { transform: translate(6%, 8%) scale(1.08); }
+}
+@keyframes aurora-drift-2 {
+  to { transform: translate(-8%, -6%) scale(1.1); }
+}
+@keyframes aurora-drift-3 {
+  to { transform: translate(-10%, 10%) scale(0.92); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg::before,
+  .aurora-bg::after,
+  .aurora-bg .aurora-blob {
+    animation: none;
+  }
+}
+
+/* Faint grid overlay for texture on top of the aurora, very premium-SaaS. */
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 90%);
+}
+@media (prefers-color-scheme: light) {
+  .grid-overlay {
+    background-image:
+      linear-gradient(to right, rgba(20, 15, 50, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(20, 15, 50, 0.05) 1px, transparent 1px);
+  }
+}
+
+/* --- Glass component classes ------------------------------------------------ */
+.glass-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.glass-panel {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.btn-primary {
+  @apply relative inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-all;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #d946ef 120%);
+  box-shadow: 0 8px 24px -8px rgba(99, 102, 241, 0.55);
+}
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 10px 28px -6px rgba(139, 92, 246, 0.65);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+.btn-primary:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition-colors;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  color: var(--fg);
+}
+.btn-secondary:hover:not(:disabled) {
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.input-field {
+  @apply w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  color: var(--fg);
+}
+.input-field:focus {
+  border-color: rgba(139, 92, 246, 0.55);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+.input-field::placeholder {
+  color: var(--muted);
+}
+
+.text-muted {
+  color: var(--muted);
 }

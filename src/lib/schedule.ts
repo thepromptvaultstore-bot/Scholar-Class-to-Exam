@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { awardClassAttended } from './gamification'
 import type { ClassScheduleEntry, Reminder } from '../types/domain'
 
 const scheduleFromRow = (r: Record<string, unknown>): ClassScheduleEntry => ({
@@ -126,3 +127,33 @@ export async function deleteReminder(id: string): Promise<void> {
 
 export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 export const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// --- Attendance (ties the timetable into the XP/leveling system) --------------
+
+export async function listAttendedForDate(dateISO: string): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('class_attendance')
+    .select('class_schedule_id')
+    .eq('attended_date', dateISO)
+  if (error) throw error
+  return new Set((data ?? []).map((r: { class_schedule_id: string }) => r.class_schedule_id))
+}
+
+// Idempotent: a repeat call for the same class + date is a no-op (the unique
+// index on the table blocks the insert), so XP is only ever awarded once.
+export async function markClassAttended(
+  userId: string,
+  classScheduleId: string,
+  subjectId: string,
+  dateISO: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('class_attendance')
+    .insert({ user_id: userId, class_schedule_id: classScheduleId, attended_date: dateISO })
+  if (error) {
+    if (error.code === '23505') return false // already marked today
+    throw error
+  }
+  awardClassAttended(userId, subjectId)
+  return true
+}

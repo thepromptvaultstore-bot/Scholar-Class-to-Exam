@@ -26,6 +26,25 @@ export async function createSemester(userId: string, name: string): Promise<Seme
   return semesterFromRow(data)
 }
 
+export async function renameSemester(id: string, name: string): Promise<Semester> {
+  const { data, error } = await supabase
+    .from('semesters')
+    .update({ name })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return semesterFromRow(data)
+}
+
+// Cascades to that semester's subjects, notes, and materials (FK ON DELETE
+// CASCADE) — the caller is responsible for confirming with the user first,
+// since this is not reversible.
+export async function deleteSemester(id: string): Promise<void> {
+  const { error } = await supabase.from('semesters').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function listSubjects(semesterId?: string): Promise<Subject[]> {
   let query = supabase.from('subjects').select('*').order('created_at', { ascending: true })
   if (semesterId) query = query.eq('semester_id', semesterId)
@@ -52,6 +71,19 @@ export async function createSubject(
     })
     .select()
     .single()
+  if (error) throw error
+  return subjectFromRow(data)
+}
+
+export async function updateSubject(
+  id: string,
+  patch: Partial<Pick<Subject, 'name' | 'professorName' | 'color'>>,
+): Promise<Subject> {
+  const dbPatch: Record<string, unknown> = {}
+  if (patch.name !== undefined) dbPatch.name = patch.name
+  if (patch.professorName !== undefined) dbPatch.professor_name = patch.professorName || null
+  if (patch.color !== undefined) dbPatch.color = patch.color
+  const { data, error } = await supabase.from('subjects').update(dbPatch).eq('id', id).select().single()
   if (error) throw error
   return subjectFromRow(data)
 }

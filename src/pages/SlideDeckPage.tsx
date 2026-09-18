@@ -92,33 +92,27 @@ export default function SlideDeckPage() {
     <div className="flex flex-col gap-4 px-5 pt-6 pb-10">
       <div className="flex items-center justify-between gap-2 print:hidden">
         <div className="flex min-w-0 items-center gap-2">
-          <button onClick={() => navigate('/slides')} className="p-1 text-gray-500">
+          <button onClick={() => navigate('/slides')} className="p-1 text-muted">
             <ChevronLeft size={20} />
           </button>
           <h1 className="truncate text-lg font-semibold text-gray-900 dark:text-white">{deck.topic}</h1>
         </div>
         <div className="flex shrink-0 gap-1">
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200"
-          >
+          <button onClick={handleExport} className="btn-secondary !px-2.5 !py-1.5 text-xs">
             <Download size={14} /> Export
           </button>
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200"
-          >
+          <button onClick={() => window.print()} className="btn-secondary !px-2.5 !py-1.5 text-xs">
             <Printer size={14} /> Print
           </button>
         </div>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700 print:hidden">{error}</p>}
+      {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500 print:hidden">{error}</p>}
 
       {/* Single-slide viewer (screen only) */}
       {slide && (
         <div className="flex flex-col gap-3 print:hidden">
-          <div className="flex aspect-video w-full flex-col justify-center gap-4 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="glass-card flex aspect-video w-full flex-col justify-center gap-4 rounded-2xl p-8 shadow-xl">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{slide.title}</h2>
             <ul className="flex flex-col gap-2">
               {slide.bullets.map((b, i) => (
@@ -134,17 +128,17 @@ export default function SlideDeckPage() {
             <button
               onClick={() => setIndex((i) => Math.max(0, i - 1))}
               disabled={index === 0}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
+              className="btn-secondary !px-3 !py-1.5 text-xs disabled:opacity-40"
             >
               <ChevronLeft size={14} /> Prev
             </button>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-muted">
               {index + 1} / {slides.length}
             </span>
             <button
               onClick={() => setIndex((i) => Math.min(slides.length - 1, i + 1))}
               disabled={index === slides.length - 1}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
+              className="btn-secondary !px-3 !py-1.5 text-xs disabled:opacity-40"
             >
               Next <ChevronRight size={14} />
             </button>
@@ -152,13 +146,13 @@ export default function SlideDeckPage() {
 
           <button
             onClick={() => setShowScript((v) => !v)}
-            className="self-start text-xs font-medium text-indigo-600"
+            className="self-start text-xs font-medium text-indigo-500"
           >
             {showScript ? 'Hide' : 'Show'} presentation script for this slide
           </button>
           {showScript && (
-            <div className="rounded-xl bg-gray-50 p-3 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-200">
-              {slide.speakerNotes || <span className="italic text-gray-400">No script for this slide.</span>}
+            <div className="glass-card rounded-xl p-3 text-sm text-gray-700 dark:text-gray-200">
+              {slide.speakerNotes || <span className="italic text-muted">No script for this slide.</span>}
             </div>
           )}
         </div>

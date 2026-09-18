@@ -60,32 +60,28 @@ export default function SlidesPage() {
     }
   }
 
-  if (loading) return <div className="px-5 pt-6 text-sm text-gray-400">Loading…</div>
+  if (loading) return <div className="px-5 pt-6 text-sm text-muted">Loading…</div>
 
   if (subjects.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
-        <Presentation size={26} className="text-indigo-500" />
-        <p className="text-sm text-gray-500">Add a subject and some notes first, then come back here.</p>
+        <Presentation size={26} className="text-indigo-400" />
+        <p className="text-sm text-muted">Add a course and some notes first, then come back here.</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-5 px-5 pt-6">
+    <div className="flex flex-col gap-5 px-5 pt-6 pb-10">
       <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Slides & Presentation</h1>
-      <p className="-mt-3 text-xs text-gray-500">
+      <p className="-mt-3 text-xs text-muted">
         Turn a topic and your notes into a slide deck plus a matching presentation script.
       </p>
-      {error && <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500">Subject</label>
-        <select
-          value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-        >
+        <label className="mb-1 block text-xs font-medium text-muted">Course</label>
+        <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className="input-field">
           {subjects.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -95,47 +91,42 @@ export default function SlidesPage() {
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-500">
-          What's the presentation about?
-        </label>
+        <label className="mb-1 block text-xs font-medium text-muted">What's the presentation about?</label>
         <input
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder="e.g. Photosynthesis overview for my group presentation"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          className="input-field"
         />
       </div>
 
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <label className="text-xs font-medium text-gray-500">Ground it in these notes</label>
+          <label className="text-xs font-medium text-muted">Ground it in these notes</label>
           {notes.length > 0 && (
             <button
               onClick={() =>
                 setSelectedNoteIds(selectedNoteIds.length === notes.length ? [] : notes.map((n) => n.id))
               }
-              className="text-xs font-medium text-indigo-600"
+              className="text-xs font-medium text-indigo-500"
             >
               {selectedNoteIds.length === notes.length ? 'Clear' : 'Select all'}
             </button>
           )}
         </div>
         {notes.length === 0 ? (
-          <p className="text-xs text-gray-400">No notes for this subject yet.</p>
+          <p className="text-xs text-muted">No notes for this course yet.</p>
         ) : (
           <div className="flex flex-col gap-1.5">
             {notes.map((n) => (
-              <label
-                key={n.id}
-                className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800"
-              >
+              <label key={n.id} className="glass-card flex items-center gap-2 rounded-xl px-3 py-2 text-sm">
                 <input
                   type="checkbox"
                   checked={selectedNoteIds.includes(n.id)}
                   onChange={() => toggleNote(n.id)}
                 />
                 <span className="truncate">
-                  {n.title} <span className="text-gray-400">· {n.sessionDate}</span>
+                  {n.title} <span className="text-muted">· {n.sessionDate}</span>
                 </span>
               </label>
             ))}
@@ -146,7 +137,7 @@ export default function SlidesPage() {
       <button
         onClick={handleGenerate}
         disabled={generating || selectedNoteIds.length === 0 || !topic.trim()}
-        className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-medium text-white disabled:opacity-50"
+        className="btn-primary"
       >
         {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
         {generating ? 'Building your deck…' : 'Generate slides + script'}
@@ -160,10 +151,10 @@ export default function SlidesPage() {
               <button
                 key={d.id}
                 onClick={() => navigate(`/slides/${d.id}`)}
-                className="flex items-center justify-between rounded-xl border border-gray-200 p-3 text-left text-sm dark:border-gray-800"
+                className="glass-card flex items-center justify-between rounded-2xl p-3 text-left text-sm transition-transform hover:-translate-y-0.5"
               >
                 <span className="truncate">{d.topic}</span>
-                <span className="shrink-0 text-xs text-gray-400">{d.status}</span>
+                <span className="shrink-0 text-xs text-muted">{d.status}</span>
               </button>
             ))}
           </div>

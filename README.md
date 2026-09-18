@@ -2,6 +2,13 @@
 
 All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGate: React + Vite + TypeScript + Tailwind, Supabase backend, Vercel web hosting, Capacitor for the Android shell. Full responsive layout — a sidebar nav on desktop/tablet, a bottom tab bar on mobile — not a phone-width-only shell.
 
+## Premium UI pass
+
+- A dark-first "glass" design system (`src/index.css`): translucent blurred cards, gradient buttons, and a soft animated "aurora" gradient-mesh background rendered in pure CSS behind every screen. This was chosen over stock background photos on purpose — it costs nothing to load, stays crisp at any screen size, needs no image licensing, and keeps working offline in the packaged Android app, while still giving the premium look that was asked for.
+- Notes was restructured: an **All notes** tab (search by text, filter by semester/course, browse everything you've ever captured in one place) plus a separate **Semesters & courses** tab for management — rename or delete a semester or a course right there (deleting a semester deletes its courses and notes, with a confirmation first).
+- Timetable now has a real weekly grid (like a printed university routine) plus a "Today" agenda strip that highlights what's happening now vs. next, and a "Mark attended" button on today's classes that awards XP — attendance now feeds the leveling system directly.
+- Grades/GPA groups courses by semester (or year, or term — whatever you name it), shows each group's own GPA plus one cumulative CGPA, so it works for both semester-system and year-system universities.
+
 ## What's built (Phase 6 — Grades / GPA Calculator)
 
 - A user-editable letter-grade → GPA-points scale (`grade_scale_entries`), seeded with a standard US 4.0 scale (A=4.0 … F=0.0) that can be reset or customized per entry
@@ -49,7 +56,7 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
 
 ## Setup
 
-1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0006_grades.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
+1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0007_attendance.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
 2. **Install & run**: `npm install`, then `npm run dev`.
 3. **Deploy the edge functions** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```

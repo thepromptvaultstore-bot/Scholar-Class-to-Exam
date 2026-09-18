@@ -180,16 +180,16 @@ export default function NoteEditorPage() {
   }
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-400">Loading…</div>
+    return <div className="p-6 text-sm text-muted">Loading…</div>
   }
   if (!note) {
-    return <div className="p-6 text-sm text-red-600">{error ?? 'Note not found.'}</div>
+    return <div className="p-6 text-sm text-red-500">{error ?? 'Note not found.'}</div>
   }
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-6">
+    <div className="flex flex-col gap-4 px-5 pt-6 pb-10">
       <div className="flex items-center gap-2">
-        <button onClick={() => navigate(-1)} className="p-1 text-gray-500">
+        <button onClick={() => navigate(-1)} className="p-1 text-muted">
           <ChevronLeft size={20} />
         </button>
         <input
@@ -197,37 +197,30 @@ export default function NoteEditorPage() {
           onChange={(e) => setTitle(e.target.value)}
           className="flex-1 truncate bg-transparent text-lg font-semibold text-gray-900 outline-none dark:text-white"
         />
-        <button onClick={handleDeleteNote} className="p-1 text-gray-300 hover:text-red-500">
+        <button onClick={handleDeleteNote} className="p-1 text-muted hover:text-red-500">
           <Trash2 size={16} />
         </button>
       </div>
-      <p className="-mt-3 text-xs text-gray-500">
+      <p className="-mt-3 text-xs text-muted">
         {note.sessionDate} {saving && '· saving…'}
       </p>
 
-      {error && <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
 
       <div className="flex items-center gap-2">
         {recorder.state === 'recording' ? (
           <button
             onClick={handleStopAndUpload}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 py-3 text-sm font-medium text-white"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-500 py-3 text-sm font-medium text-white shadow-lg shadow-red-500/30"
           >
             <Square size={15} /> Stop · {formatElapsed(recorder.elapsedMs)}
           </button>
         ) : (
-          <button
-            onClick={recorder.start}
-            disabled={transcribing}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-medium text-white disabled:opacity-60"
-          >
+          <button onClick={recorder.start} disabled={transcribing} className="btn-primary flex-1">
             <Mic size={15} /> {transcribing ? 'Transcribing…' : 'Record more'}
           </button>
         )}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center gap-2 rounded-xl border border-gray-300 px-3 py-3 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200"
-        >
+        <button onClick={() => fileInputRef.current?.click()} className="btn-secondary !px-3">
           <Paperclip size={15} />
         </button>
         <input
@@ -241,28 +234,23 @@ export default function NoteEditorPage() {
           }}
         />
       </div>
-      {recorder.error && <p className="text-xs text-red-600">{recorder.error}</p>}
+      {recorder.error && <p className="text-xs text-red-500">{recorder.error}</p>}
 
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="Type notes here, or record the class and the transcript will appear here for editing…"
-        className="min-h-56 flex-1 resize-none rounded-xl border border-gray-200 p-3 text-sm leading-relaxed outline-none dark:border-gray-800 dark:bg-gray-900"
+        className="input-field min-h-56 flex-1 resize-none leading-relaxed"
       />
 
       {materials.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">
-            Attached materials
-          </h2>
+          <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">Attached materials</h2>
           <div className="flex flex-col gap-2">
             {materials.map((m) => (
-              <div
-                key={m.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800"
-              >
+              <div key={m.id} className="glass-card flex items-center justify-between rounded-xl px-3 py-2 text-sm">
                 <span className="truncate">{m.fileName}</span>
-                <button onClick={() => handleRemoveMaterial(m)} className="text-gray-300 hover:text-red-500">
+                <button onClick={() => handleRemoveMaterial(m)} className="text-muted hover:text-red-500">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -272,16 +260,10 @@ export default function NoteEditorPage() {
       )}
 
       <div className="mb-6 flex gap-2">
-        <button
-          onClick={handleExport}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200"
-        >
+        <button onClick={handleExport} className="btn-secondary flex-1">
           <Download size={15} /> Export
         </button>
-        <button
-          onClick={() => window.print()}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200"
-        >
+        <button onClick={() => window.print()} className="btn-secondary flex-1">
           <Printer size={15} /> Print
         </button>
       </div>

@@ -67,14 +67,20 @@ export default function HomePage() {
         </div>
         <button
           onClick={() => signOut()}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800"
+          className="glass-card flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:text-red-500"
           aria-label="Sign out"
         >
           <LogOut size={16} />
         </button>
       </div>
 
-      <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 p-4 text-white">
+      <div
+        className="rounded-2xl p-4 text-white"
+        style={{
+          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #d946ef 120%)',
+          boxShadow: '0 12px 28px -10px rgba(139, 92, 246, 0.55)',
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide opacity-80">
             <Sparkles size={14} /> Level {levelInfo?.level ?? 1}
@@ -101,9 +107,7 @@ export default function HomePage() {
       </div>
 
       {loadError && (
-        <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {loadError}
-        </p>
+        <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{loadError}</p>
       )}
 
       <section>
@@ -111,17 +115,17 @@ export default function HomePage() {
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
             {activeSemester ? activeSemester.name : 'Your courses'}
           </h2>
-          <Link to="/notes" className="text-xs font-medium text-indigo-600">
+          <Link to="/notes" className="text-xs font-medium text-indigo-500">
             Manage
           </Link>
         </div>
 
         {loading ? (
-          <p className="text-xs text-gray-400">Loading…</p>
+          <p className="text-xs text-muted">Loading…</p>
         ) : subjects.length === 0 ? (
           <Link
             to="/notes"
-            className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-6 text-sm text-gray-500 dark:border-gray-700"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-black/10 py-6 text-sm text-muted dark:border-white/15"
           >
             <Plus size={16} /> Add your first subject
           </Link>
@@ -131,7 +135,7 @@ export default function HomePage() {
               <Link
                 key={s.id}
                 to={`/notes?subject=${s.id}`}
-                className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800"
+                className="glass-card flex items-center gap-3 rounded-2xl p-3 transition-transform hover:-translate-y-0.5"
               >
                 <span
                   className="h-8 w-8 shrink-0 rounded-lg"
@@ -140,12 +144,10 @@ export default function HomePage() {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{s.name}</p>
-                  {s.professorName && (
-                    <p className="truncate text-xs text-gray-500">{s.professorName}</p>
-                  )}
+                  {s.professorName && <p className="truncate text-xs text-muted">{s.professorName}</p>}
                 </div>
                 {knowledge[s.id]?.score !== null && knowledge[s.id]?.score !== undefined && (
-                  <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                  <span className="shrink-0 rounded-full bg-indigo-500/10 px-2 py-1 text-[11px] font-medium text-indigo-500">
                     {knowledge[s.id].score}% mastery
                   </span>
                 )}
@@ -158,19 +160,19 @@ export default function HomePage() {
       <section>
         <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">Recent notes</h2>
         {recentNotes.length === 0 ? (
-          <p className="text-xs text-gray-400">Nothing captured yet.</p>
+          <p className="text-xs text-muted">Nothing captured yet.</p>
         ) : (
           <div className="flex flex-col gap-2">
             {recentNotes.map((n) => (
               <Link
                 key={n.id}
                 to={`/notes/${n.id}`}
-                className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800"
+                className="glass-card flex items-center gap-3 rounded-2xl p-3 transition-transform hover:-translate-y-0.5"
               >
                 <BookOpen size={16} className="shrink-0 text-indigo-500" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{n.title}</p>
-                  <p className="text-xs text-gray-500">{n.sessionDate}</p>
+                  <p className="text-xs text-muted">{n.sessionDate}</p>
                 </div>
               </Link>
             ))}

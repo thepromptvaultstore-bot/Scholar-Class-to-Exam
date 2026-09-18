@@ -146,13 +146,13 @@ export default function PracticeSetPage() {
   return (
     <div className="flex flex-col gap-4 px-5 pt-6 pb-10">
       <div className="flex items-center gap-2">
-        <button onClick={() => navigate('/practice')} className="p-1 text-gray-500">
+        <button onClick={() => navigate('/practice')} className="p-1 text-muted">
           <ChevronLeft size={20} />
         </button>
         <h1 className="truncate text-lg font-semibold text-gray-900 dark:text-white">{set.title}</h1>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
 
       {!attempt && (
         <>
@@ -164,10 +164,10 @@ export default function PracticeSetPage() {
                   <button
                     key={a.id}
                     onClick={() => handleViewResult(a.id)}
-                    className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800"
+                    className="glass-card flex items-center justify-between rounded-xl px-3 py-2 text-sm"
                   >
                     <span>{new Date(a.startedAt).toLocaleString()}</span>
-                    <span className="font-medium text-indigo-600">
+                    <span className="font-medium text-indigo-500">
                       {a.status === 'graded' ? `${a.totalScore}%` : a.status}
                     </span>
                   </button>
@@ -175,10 +175,7 @@ export default function PracticeSetPage() {
               </div>
             </div>
           )}
-          <button
-            onClick={handleStart}
-            className="rounded-xl bg-indigo-600 py-3 text-sm font-medium text-white"
-          >
+          <button onClick={handleStart} className="btn-primary">
             {pastAttempts.length > 0 ? 'Try again' : 'Start'}
           </button>
         </>
@@ -187,7 +184,7 @@ export default function PracticeSetPage() {
       {attempt && !gradedResult && (
         <div className="flex flex-col gap-4">
           {questions.map((q, i) => (
-            <div key={q.id} className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
+            <div key={q.id} className="glass-card rounded-2xl p-3">
               <p className="mb-2 text-sm font-medium text-gray-900 dark:text-white">
                 {i + 1}. {q.prompt}
               </p>
@@ -232,7 +229,7 @@ export default function PracticeSetPage() {
                   value={answers[q.id] ?? ''}
                   onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                   onBlur={() => handleAnswerBlur(q.id)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                  className="input-field"
                 />
               )}
               {(q.type === 'short_answer' || q.type === 'essay') && (
@@ -241,16 +238,12 @@ export default function PracticeSetPage() {
                   onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                   onBlur={() => handleAnswerBlur(q.id)}
                   rows={q.type === 'essay' ? 5 : 3}
-                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                  className="input-field resize-none"
                 />
               )}
             </div>
           ))}
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-medium text-white disabled:opacity-60"
-          >
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
             {submitting && <Loader2 size={16} className="animate-spin" />}
             {submitting ? 'Grading…' : 'Submit for grading'}
           </button>
@@ -259,23 +252,29 @@ export default function PracticeSetPage() {
 
       {attempt && gradedResult && (
         <div className="flex flex-col gap-4">
-          <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 p-4 text-center text-white">
+          <div
+            className="rounded-2xl p-4 text-center text-white"
+            style={{
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #d946ef 120%)',
+              boxShadow: '0 12px 28px -10px rgba(139, 92, 246, 0.55)',
+            }}
+          >
             <p className="text-xs uppercase tracking-wide opacity-80">Score</p>
             <p className="text-3xl font-semibold">{attempt.totalScore}%</p>
           </div>
           {questions.map((q, i) => {
             const a = gradedAnswers.find((x) => x.questionId === q.id)
             return (
-              <div key={q.id} className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
+              <div key={q.id} className="glass-card rounded-2xl p-3">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {i + 1}. {q.prompt}
                 </p>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                  Your answer: {a?.userAnswer || <span className="italic text-gray-400">blank</span>}
+                  Your answer: {a?.userAnswer || <span className="italic text-muted">blank</span>}
                 </p>
                 <p
                   className={`mt-1 text-xs font-medium ${
-                    a?.isCorrect ? 'text-emerald-600' : 'text-amber-600'
+                    a?.isCorrect ? 'text-emerald-500' : 'text-amber-500'
                   }`}
                 >
                   {a?.score ?? 0}/{q.maxScore} {a?.feedback ? `· ${a.feedback}` : ''}
@@ -288,7 +287,7 @@ export default function PracticeSetPage() {
               setAttempt(null)
               setGradedAnswers([])
             }}
-            className="rounded-xl border border-gray-300 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200"
+            className="btn-secondary"
           >
             Back to overview
           </button>

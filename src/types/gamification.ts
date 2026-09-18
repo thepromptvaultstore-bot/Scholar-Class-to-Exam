@@ -1,4 +1,4 @@
-export type XpKind = 'note_captured' | 'practice_generated' | 'practice_graded'
+export type XpKind = 'note_captured' | 'practice_generated' | 'practice_graded' | 'class_attended'
 
 export interface XpEvent {
   id: string

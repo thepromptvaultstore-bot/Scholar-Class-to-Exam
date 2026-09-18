@@ -5,6 +5,7 @@ import type { LevelInfo, SubjectKnowledge, XpKind } from '../types/gamification'
 // (see awardPracticeGraded), so a strong exam result earns more than a weak one.
 export const XP_NOTE_CAPTURED = 10
 export const XP_PRACTICE_GENERATED = 5
+export const XP_CLASS_ATTENDED = 8
 const XP_PER_LEVEL = 100
 
 async function logXp(userId: string, kind: XpKind, amount: number, subjectId?: string | null) {
@@ -24,6 +25,9 @@ export const awardNoteCaptured = (userId: string, subjectId: string) =>
 
 export const awardPracticeGenerated = (userId: string, subjectId: string) =>
   logXp(userId, 'practice_generated', XP_PRACTICE_GENERATED, subjectId)
+
+export const awardClassAttended = (userId: string, subjectId: string) =>
+  logXp(userId, 'class_attended', XP_CLASS_ATTENDED, subjectId)
 
 // A graded attempt earns 1 XP per percentage point scored (so a perfect
 // score earns 100, a 50% earns 50) — rewards doing well, not just doing it.
