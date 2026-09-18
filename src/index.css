@@ -49,6 +49,11 @@ option {
   background-color: #16131f;
   color: #f1f0f7;
 }
+optgroup {
+  background-color: #16131f;
+  color: #9691ad;
+  font-weight: 600;
+}
 
 /* --- Premium "aurora mesh" background --------------------------------------
    Soft, slowly-drifting gradient blobs behind the whole app instead of a flat
