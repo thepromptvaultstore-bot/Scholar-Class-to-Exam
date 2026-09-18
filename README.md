@@ -24,6 +24,14 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
 - "Stop sharing" clears the token, immediately invalidating any link already sent out; sharing again issues a brand new one.
 - New migration `0009_sharing.sql` adds the `share_token` column (unique, nullable) to both tables.
 
+## Duolingo-style gamification: friends, streak freezes, daily goals, badges
+
+- **Friend codes + a friends-only weekly league.** Every profile gets a short 6-character friend code (`/league`, also linked from Profile); add someone by entering their code — no email/search needed, so a stranger can't look you up. The weekly leaderboard (this week's XP) and promotion/demotion (top third of your friend group promotes a league tier — Bronze → Silver → Gold → Platinum → Diamond — bottom third demotes) is scoped to friends rather than all Scholar users: with the current user base, a global leaderboard would just show you alone in Bronze most weeks, which defeats the point of a league. Two new edge functions do the cross-user work RLS otherwise blocks: `add-friend` (looks up a code and writes both directions of the friendship) and `get-friends` (computes friends' this-week/last-week/lifetime XP for the board and the weekly promotion/demotion check).
+- **Streak freezes.** Miss exactly one day and, if you have a freeze available, it's spent automatically to keep your streak alive instead of resetting to zero — same idea as Duolingo's, minus a gem shop: everyone starts with 2, and the only way to earn more (back up to a cap of 2) is hitting a 7/30/100-day streak badge. No hearts/lives system — this is a practice-exam tool, not something that should lock you out of studying for getting an answer wrong.
+- **A daily XP goal**, picked on Profile (Casual 20 / Regular 30 / Serious 50 / Intense 80 XP) and shown as a progress ring on Home next to today's XP.
+- **A badge/trophy case** on Profile — streak, level, note-count, practice-count, and perfect-score milestones, greyed out until earned, awarded automatically as soon as they're hit (`checkAndAwardBadges`, called on Home load).
+- New migration `0010_gamification_v2.sql` adds `friend_code` / `streak_freeze_count` / `daily_goal_xp` / `league_tier` / `league_week_key` to `profiles`, plus new `friendships`, `streak_freeze_log`, and `badges_earned` tables (all owner-only RLS; cross-user reads go through the two new edge functions instead of relaxed policies, same reasoning as the share-link feature above).
+
 ## Theming fixes (post-launch feedback)
 
 - The app now commits to a single always-dark theme instead of switching with the OS: `@custom-variant dark (&);` in `src/index.css` forces every `dark:` Tailwind class on unconditionally, and `color-scheme: dark` is set globally. This directly fixes native `<select>` dropdown popups (course picker, letter-grade picker, etc.) rendering with illegible light/white system chrome against the dark page — `select`/`input`/`textarea` get an explicit `color-scheme: dark`, and `option` elements get explicit dark background/text colors, so the popup list now matches the app instead of falling back to the OS's light theme.
@@ -76,7 +84,7 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
 
 ## Setup
 
-1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0009_sharing.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
+1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0010_gamification_v2.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
 2. **Install & run**: `npm install`, then `npm run dev`.
 3. **Deploy the edge functions** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```
@@ -88,6 +96,8 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
    supabase functions deploy generate-practice
    supabase functions deploy grade-attempt
    supabase functions deploy generate-slides
+   supabase functions deploy add-friend
+   supabase functions deploy get-friends
    supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
    ```
    Get an Anthropic API key at console.anthropic.com — this is what powers practice/exam generation, grading, slide/script generation, and now handwritten-note OCR too (same Haiku-for-cost choice IELTSGate made; no separate OCR key needed). If you already have `generate-practice` deployed from before, redeploy it — it changed this round to also read attached study materials.

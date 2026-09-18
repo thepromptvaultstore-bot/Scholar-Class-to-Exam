@@ -6,6 +6,11 @@ export const profileFromRow = (r: ProfileRow, email: string | null = null): Prof
   fullName: r.full_name,
   university: r.university,
   avatarUrl: r.avatar_url,
+  friendCode: r.friend_code,
+  streakFreezeCount: r.streak_freeze_count,
+  dailyGoalXp: r.daily_goal_xp,
+  leagueTier: r.league_tier,
+  leagueWeekKey: r.league_week_key,
   email,
   createdAt: r.created_at,
 })
@@ -49,3 +54,4 @@ export const materialFromRow = (r: NoteMaterialRow): NoteMaterial => ({
   fileName: r.file_name,
   fileType: r.file_type,
 })
+

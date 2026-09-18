@@ -261,12 +261,13 @@ export async function getProfile(userId: string, email: string | null): Promise<
 
 export async function updateProfile(
   userId: string,
-  patch: Partial<Pick<Profile, 'fullName' | 'university' | 'avatarUrl'>>,
+  patch: Partial<Pick<Profile, 'fullName' | 'university' | 'avatarUrl' | 'dailyGoalXp'>>,
 ): Promise<Profile> {
-  const dbPatch: Record<string, string | null> = {}
+  const dbPatch: Record<string, string | number | null> = {}
   if (patch.fullName !== undefined) dbPatch.full_name = patch.fullName
   if (patch.university !== undefined) dbPatch.university = patch.university
   if (patch.avatarUrl !== undefined) dbPatch.avatar_url = patch.avatarUrl
+  if (patch.dailyGoalXp !== undefined) dbPatch.daily_goal_xp = patch.dailyGoalXp
 
   const { data, error } = await supabase
     .from('profiles')
@@ -289,3 +290,4 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
   // Cache-bust so the new photo shows immediately, since the path is stable.
   return `${data.publicUrl}?t=${Date.now()}`
 }
+

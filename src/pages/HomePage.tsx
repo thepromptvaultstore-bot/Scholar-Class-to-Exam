@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Flame, Plus, Sparkles } from 'lucide-react'
+import { BookOpen, Flame, Plus, Shield, Sparkles, Trophy } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { getProfile, listSemesters, listSubjects, listNotes } from '../lib/data'
-import { getKnowledgeForSubjects, getLevelInfo, getStreakDays } from '../lib/gamification'
-import type { Semester, Subject, Note } from '../types/domain'
+import {
+  applyStreakFreezeIfNeeded,
+  checkAndAwardBadges,
+  checkWeeklyLeagueRollover,
+  getKnowledgeForSubjects,
+  getLevelInfo,
+  getStreakDays,
+  getTodayXp,
+} from '../lib/gamification'
+import { LEAGUE_TIERS, type BadgeDef } from '../types/gamification'
+import type { Semester, Subject, Note, Profile } from '../types/domain'
 import type { LevelInfo, SubjectKnowledge } from '../types/gamification'
 
 export default function HomePage() {
@@ -14,21 +23,24 @@ export default function HomePage() {
   const [recentNotes, setRecentNotes] = useState<Note[]>([])
   const [levelInfo, setLevelInfo] = useState<LevelInfo | null>(null)
   const [streak, setStreak] = useState(0)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [todayXp, setTodayXp] = useState(0)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [knowledge, setKnowledge] = useState<Record<string, SubjectKnowledge>>({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [newBadges, setNewBadges] = useState<BadgeDef[]>([])
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        const [s, subj, notes, level, streakDays] = await Promise.all([
+        const [s, subj, notes, level, streakDays, xpToday] = await Promise.all([
           listSemesters(),
           listSubjects(),
           listNotes(),
           getLevelInfo(),
           getStreakDays(),
+          getTodayXp(),
         ])
         if (cancelled) return
         setSemesters(s)
@@ -36,12 +48,20 @@ export default function HomePage() {
         setRecentNotes(notes.slice(0, 3))
         setLevelInfo(level)
         setStreak(streakDays)
+        setTodayXp(xpToday)
         if (user) {
           getProfile(user.id, user.email ?? null)
             .then((p) => {
-              if (!cancelled) setAvatarUrl(p.avatarUrl)
+              if (!cancelled) setProfile(p)
             })
             .catch(() => {})
+          // Best-effort gamification upkeep — never blocks the page.
+          applyStreakFreezeIfNeeded(user.id).then(() => {
+            if (!cancelled) getStreakDays().then((d) => !cancelled && setStreak(d))
+          })
+          checkAndAwardBadges(user.id).then((badges) => {
+            if (!cancelled && badges.length > 0) setNewBadges(badges)
+          })
         }
         if (subj.length > 0) {
           getKnowledgeForSubjects(subj.map((x) => x.id))
@@ -63,7 +83,18 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
+  // Separate effect so the league rollover (which needs the profile's
+  // stored tier/week-key) runs once profile has loaded.
+  useEffect(() => {
+    if (!user || !profile) return
+    checkWeeklyLeagueRollover(user.id, profile.leagueTier, profile.leagueWeekKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile?.id])
+
   const activeSemester = semesters.find((s) => s.isActive) ?? semesters[0]
+  const dailyGoal = profile?.dailyGoalXp ?? 30
+  const goalPct = Math.min(100, Math.round((todayXp / dailyGoal) * 100))
+  const tierInfo = LEAGUE_TIERS.find((t) => t.tier === (profile?.leagueTier ?? 'bronze'))!
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-6">
@@ -75,8 +106,8 @@ export default function HomePage() {
           </h1>
         </div>
         <Link to="/profile" className="h-9 w-9 shrink-0 overflow-hidden rounded-full" aria-label="Your profile">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          {profile?.avatarUrl ? (
+            <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
           ) : (
             <div
               className="flex h-full w-full items-center justify-center text-xs font-semibold text-white"
@@ -102,6 +133,11 @@ export default function HomePage() {
           {streak > 0 && (
             <div className="flex items-center gap-1 text-xs font-medium">
               <Flame size={14} /> {streak} day{streak === 1 ? '' : 's'}
+              {(profile?.streakFreezeCount ?? 0) > 0 && (
+                <span className="ml-1 flex items-center gap-0.5 opacity-80" title="Streak freezes available">
+                  <Shield size={11} /> {profile?.streakFreezeCount}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -118,6 +154,57 @@ export default function HomePage() {
           {levelInfo ? levelInfo.xpForNextLevel - levelInfo.xpIntoLevel : 100} XP to level{' '}
           {(levelInfo?.level ?? 1) + 1} — earned from notes, practice, and test scores.
         </p>
+      </div>
+
+      {newBadges.length > 0 && (
+        <div className="glass-card flex items-center justify-between gap-3 rounded-2xl border border-amber-400/40 p-3">
+          <div className="flex items-center gap-2">
+            <Trophy size={18} className="shrink-0 text-amber-500" />
+            <p className="text-xs font-medium text-gray-900 dark:text-white">
+              New badge{newBadges.length > 1 ? 's' : ''}: {newBadges.map((b) => b.label).join(', ')}
+            </p>
+          </div>
+          <button onClick={() => setNewBadges([])} className="shrink-0 text-[11px] text-muted">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="glass-card flex items-center gap-3 rounded-2xl p-3">
+          <svg width="44" height="44" viewBox="0 0 44 44" className="shrink-0 -rotate-90">
+            <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="5" className="text-black/10 dark:text-white/10" />
+            <circle
+              cx="22"
+              cy="22"
+              r="18"
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 18}
+              strokeDashoffset={2 * Math.PI * 18 * (1 - goalPct / 100)}
+            />
+          </svg>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {todayXp}/{dailyGoal} XP
+            </p>
+            <p className="text-[11px] text-muted">Daily goal</p>
+          </div>
+        </div>
+        <Link to="/league" className="glass-card flex items-center gap-3 rounded-2xl p-3 transition-transform hover:-translate-y-0.5">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white"
+            style={{ background: tierInfo.color }}
+          >
+            <Trophy size={17} />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{tierInfo.label}</p>
+            <p className="text-[11px] text-muted">This week's league</p>
+          </div>
+        </Link>
       </div>
 
       {loadError && (
@@ -196,3 +283,4 @@ export default function HomePage() {
     </div>
   )
 }
+

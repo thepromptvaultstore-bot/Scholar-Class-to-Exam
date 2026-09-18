@@ -1,12 +1,17 @@
 // App-facing shapes, kept separate from the raw DB rows so the UI never has
 // to think in snake_case.
-import type { CaptureMode, TranscriptionStatus } from './database'
+import type { CaptureMode, LeagueTier, TranscriptionStatus } from './database'
 
 export interface Profile {
   id: string
   fullName: string | null
   university: string | null
   avatarUrl: string | null
+  friendCode: string | null
+  streakFreezeCount: number
+  dailyGoalXp: number
+  leagueTier: LeagueTier
+  leagueWeekKey: string | null
   email: string | null
   createdAt: string
 }
@@ -70,3 +75,4 @@ export interface Reminder {
   isDone: boolean
   createdAt: string
 }
+

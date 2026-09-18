@@ -13,6 +13,7 @@ import SlidesPage from './pages/SlidesPage'
 import SlideDeckPage from './pages/SlideDeckPage'
 import SchedulePage from './pages/SchedulePage'
 import ProfilePage from './pages/ProfilePage'
+import LeaguePage from './pages/LeaguePage'
 import SharedPage from './pages/SharedPage'
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
                   <Route path="/slides/:id" element={<SlideDeckPage />} />
                   <Route path="/schedule" element={<SchedulePage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/league" element={<LeaguePage />} />
                 </Routes>
               </AppShell>
             </ProtectedRoute>
@@ -53,3 +55,4 @@ function App() {
 }
 
 export default App
+

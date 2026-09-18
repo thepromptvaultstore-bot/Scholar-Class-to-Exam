@@ -10,7 +10,28 @@ export interface ProfileRow {
   full_name: string | null
   university: string | null
   avatar_url: string | null
+  friend_code: string | null
+  streak_freeze_count: number
+  daily_goal_xp: number
+  league_tier: LeagueTier
+  league_week_key: string | null
   created_at: string
+}
+
+export type LeagueTier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond'
+
+export interface FriendshipRow {
+  id: string
+  user_id: string
+  friend_id: string
+  created_at: string
+}
+
+export interface BadgeEarnedRow {
+  id: string
+  user_id: string
+  badge_key: string
+  earned_at: string
 }
 
 export interface SemesterRow {
@@ -84,6 +105,17 @@ export interface Database {
         Insert: Omit<NoteMaterialRow, 'id' | 'created_at'> & { id?: string }
         Update: Partial<NoteMaterialRow>
       }
+      friendships: {
+        Row: FriendshipRow
+        Insert: Omit<FriendshipRow, 'id' | 'created_at'> & { id?: string }
+        Update: Partial<FriendshipRow>
+      }
+      badges_earned: {
+        Row: BadgeEarnedRow
+        Insert: Omit<BadgeEarnedRow, 'id' | 'earned_at'> & { id?: string }
+        Update: Partial<BadgeEarnedRow>
+      }
     }
   }
 }
+

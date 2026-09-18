@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Camera, ChevronLeft, Flame, LogOut, Sparkles } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Camera, ChevronLeft, Flame, Lock, LogOut, Sparkles, Trophy } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { getProfile, listNotes, listSubjects, updateProfile, uploadAvatar } from '../lib/data'
-import { getLevelInfo, getStreakDays } from '../lib/gamification'
+import { getLevelInfo, getStreakDays, listEarnedBadges } from '../lib/gamification'
+import { BADGE_CATALOG, DAILY_GOAL_PRESETS } from '../types/gamification'
 import type { Profile } from '../types/domain'
-import type { LevelInfo } from '../types/gamification'
+import type { EarnedBadge, LevelInfo } from '../types/gamification'
 
 function initials(name: string | null, email: string | null) {
   const source = (name || email || '?').trim()
@@ -24,9 +25,11 @@ export default function ProfilePage() {
   const [streak, setStreak] = useState(0)
   const [noteCount, setNoteCount] = useState(0)
   const [subjectCount, setSubjectCount] = useState(0)
+  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [savingGoal, setSavingGoal] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -38,12 +41,13 @@ export default function ProfilePage() {
     async function load() {
       if (!user) return
       try {
-        const [p, level, streakDays, notes, subjects] = await Promise.all([
+        const [p, level, streakDays, notes, subjects, badges] = await Promise.all([
           getProfile(user.id, user.email ?? null),
           getLevelInfo(),
           getStreakDays(),
           listNotes(),
           listSubjects(),
+          listEarnedBadges(),
         ])
         if (cancelled) return
         setProfile(p)
@@ -53,6 +57,7 @@ export default function ProfilePage() {
         setStreak(streakDays)
         setNoteCount(notes.length)
         setSubjectCount(subjects.length)
+        setEarnedBadges(badges)
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load your profile.')
       } finally {
@@ -99,6 +104,20 @@ export default function ProfilePage() {
     }
   }
 
+  const handleSetGoal = async (xp: number) => {
+    if (!user || xp === profile?.dailyGoalXp) return
+    setSavingGoal(true)
+    try {
+      const updated = await updateProfile(user.id, { dailyGoalXp: xp })
+      setProfile((prev) => (prev ? { ...prev, ...updated } : updated))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update your daily goal.')
+    } finally {
+      setSavingGoal(false)
+    }
+  }
+
+  const earnedKeys = new Set(earnedBadges.map((b) => b.key))
   const dirty = profile !== null && (fullName !== (profile.fullName ?? '') || university !== (profile.university ?? ''))
 
   return (
@@ -170,12 +189,81 @@ export default function ProfilePage() {
                 <Flame size={14} />
               </div>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">{streak}</p>
-              <p className="text-[11px] text-muted">Day streak</p>
+              <p className="text-[11px] text-muted">
+                Day streak{(profile?.streakFreezeCount ?? 0) > 0 ? ` · ${profile?.streakFreezeCount} freeze` : ''}
+              </p>
             </div>
             <div className="glass-card rounded-2xl p-3 text-center">
               <p className="mb-1 text-[11px] font-medium text-indigo-500">{levelInfo?.totalXp ?? 0} XP</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">{noteCount}</p>
               <p className="text-[11px] text-muted">Notes · {subjectCount} courses</p>
+            </div>
+          </div>
+
+          <Link
+            to="/league"
+            className="glass-card flex items-center justify-between gap-3 rounded-2xl p-4 transition-transform hover:-translate-y-0.5"
+          >
+            <div className="flex items-center gap-2.5">
+              <Trophy size={18} className="text-amber-500" />
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Friends & league</p>
+                <p className="text-[11px] text-muted">Add friends and see this week's standings</p>
+              </div>
+            </div>
+            <span className="text-xs font-medium text-indigo-500">Open →</span>
+          </Link>
+
+          <div className="glass-card flex flex-col gap-3 rounded-2xl p-4">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Daily goal</h2>
+            <div className="grid grid-cols-4 gap-2">
+              {DAILY_GOAL_PRESETS.map((preset) => {
+                const active = (profile?.dailyGoalXp ?? 30) === preset.xp
+                return (
+                  <button
+                    key={preset.tier}
+                    onClick={() => handleSetGoal(preset.xp)}
+                    disabled={savingGoal}
+                    className={`flex flex-col items-center gap-0.5 rounded-xl border px-1 py-2.5 text-center transition-colors ${
+                      active
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                        : 'border-black/10 text-muted dark:border-white/15'
+                    }`}
+                  >
+                    <span className="text-xs font-semibold">{preset.label}</span>
+                    <span className="text-[10px]">{preset.xp} XP</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="glass-card flex flex-col gap-3 rounded-2xl p-4">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
+              <Trophy size={15} className="text-amber-500" /> Badges
+            </h2>
+            <div className="grid grid-cols-4 gap-2">
+              {BADGE_CATALOG.map((badge) => {
+                const earned = earnedKeys.has(badge.key)
+                return (
+                  <div
+                    key={badge.key}
+                    title={`${badge.label} — ${badge.description}`}
+                    className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center ${
+                      earned ? 'bg-amber-500/10' : 'bg-black/[0.03] dark:bg-white/[0.05]'
+                    }`}
+                  >
+                    {earned ? (
+                      <Trophy size={18} className="text-amber-500" />
+                    ) : (
+                      <Lock size={16} className="text-muted opacity-50" />
+                    )}
+                    <span className={`text-[9.5px] leading-tight ${earned ? 'text-gray-900 dark:text-white' : 'text-muted'}`}>
+                      {badge.label}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -217,3 +305,4 @@ export default function ProfilePage() {
     </div>
   )
 }
+
