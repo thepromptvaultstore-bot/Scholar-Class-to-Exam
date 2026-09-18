@@ -5,6 +5,13 @@
 // set (short-answer / essay), per plan section 4.2. The Anthropic API key
 // lives only here, as a function secret — never in the client bundle.
 //
+// Also pulls in each selected note's attached "study materials" (images and
+// PDFs — a scanned past exam, a textbook chapter, a professor's slide PDF)
+// as direct vision/document input to Claude, not just the notes' own text —
+// so "practice by making exam questions ... from the notes and study
+// materials" (the user's own phrasing) covers both sources in one call.
+// Capped to keep the request reasonable; text notes are never capped.
+//
 // Deploy:  supabase functions deploy generate-practice
 // Secret:  supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 //
@@ -16,6 +23,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 const MODEL = 'claude-haiku-4-5' // cheap/fast, same choice IELTSGate made for scale
+const MAX_MATERIAL_FILES = 8
+const MAX_MATERIAL_BYTES = 8 * 1024 * 1024 // 8MB per file, generous for a phone photo/PDF
 
 const SYSTEM_PROMPT = `You write practice questions for a university student from their own class notes.
 Return ONLY valid JSON matching this exact shape, no prose, no markdown fences:
@@ -66,14 +75,54 @@ Deno.serve(async (req) => {
       )
       .join('\n\n')
 
-    if (!material.trim()) {
-      throw new Error('The selected note(s) have no content yet — write or record something first.')
+    // Attached study materials (images/PDFs) on any of the selected notes —
+    // sent to Claude as direct vision/document input alongside the note text.
+    const { data: materialRows } = await supabase
+      .from('note_materials')
+      .select('file_path, file_name, file_type')
+      .in('note_id', set.note_ids)
+
+    type MaterialRow = { file_path: string; file_name: string; file_type: string | null }
+    const usableMaterials = ((materialRows ?? []) as MaterialRow[])
+      .filter((m) => m.file_type?.startsWith('image/') || m.file_type === 'application/pdf')
+      .slice(0, MAX_MATERIAL_FILES)
+
+    const materialBlocks: Record<string, unknown>[] = []
+    for (const m of usableMaterials) {
+      try {
+        const { data: file, error: dlError } = await supabase.storage
+          .from('note-materials')
+          .download(m.file_path)
+        if (dlError || !file || file.size > MAX_MATERIAL_BYTES) continue
+        const buf = new Uint8Array(await file.arrayBuffer())
+        let binary = ''
+        const chunk = 0x8000
+        for (let i = 0; i < buf.length; i += chunk) binary += String.fromCharCode(...buf.subarray(i, i + chunk))
+        const base64 = btoa(binary)
+        if (m.file_type === 'application/pdf') {
+          materialBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } })
+        } else {
+          materialBlocks.push({ type: 'image', source: { type: 'base64', media_type: m.file_type, data: base64 } })
+        }
+      } catch {
+        // A single unreadable attachment shouldn't fail the whole generation.
+      }
+    }
+
+    if (!material.trim() && materialBlocks.length === 0) {
+      throw new Error(
+        'The selected note(s) have no content yet — write, record, scan, or attach something first.',
+      )
     }
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set as a function secret')
 
-    const userPrompt = `Format: ${set.format}\n\nClass notes:\n\n${material}`
+    const textPrompt =
+      `Format: ${set.format}\n\nClass notes:\n\n${material || '(no typed/recorded/scanned note text — use the attached study materials below)'}` +
+      (materialBlocks.length > 0
+        ? `\n\n${materialBlocks.length} attached study material file(s) follow as images/documents — use them as source material too.`
+        : '')
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -86,7 +135,9 @@ Deno.serve(async (req) => {
         model: MODEL,
         max_tokens: 4096,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: textPrompt }, ...materialBlocks] },
+        ],
       }),
     })
     if (!res.ok) throw new Error(`Anthropic API error ${res.status}: ${await res.text()}`)

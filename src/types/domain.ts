@@ -2,6 +2,15 @@
 // to think in snake_case.
 import type { CaptureMode, TranscriptionStatus } from './database'
 
+export interface Profile {
+  id: string
+  fullName: string | null
+  university: string | null
+  avatarUrl: string | null
+  email: string | null
+  createdAt: string
+}
+
 export interface Semester {
   id: string
   name: string

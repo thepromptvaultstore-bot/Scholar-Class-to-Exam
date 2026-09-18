@@ -1,8 +1,16 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { BookOpen, GraduationCap, Home, Presentation, CalendarClock, GraduationCap as Logo } from 'lucide-react'
+import {
+  BookOpen,
+  GraduationCap,
+  Home,
+  Presentation,
+  CalendarClock,
+  GraduationCap as Logo,
+} from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useReminderNotifications } from '../lib/useReminderNotifications'
+import { getProfile } from '../lib/data'
 
 const tabs = [
   { to: '/', label: 'Home', icon: Home },
@@ -13,8 +21,27 @@ const tabs = [
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const userId = useAuthStore((s) => s.user?.id)
+  const user = useAuthStore((s) => s.user)
+  const userId = user?.id
   useReminderNotifications(userId)
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [fullName, setFullName] = useState<string | null>(null)
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    getProfile(user.id, user.email ?? null)
+      .then((p) => {
+        if (!cancelled) {
+          setAvatarUrl(p.avatarUrl)
+          setFullName(p.fullName)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   return (
     <div className="relative flex h-dvh w-full overflow-hidden">
@@ -65,6 +92,29 @@ export function AppShell({ children }: { children: ReactNode }) {
             {label}
           </NavLink>
         ))}
+
+        <NavLink
+          to="/profile"
+          className={({ isActive }) =>
+            `mt-auto flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium transition-colors ${
+              isActive ? 'bg-black/[0.03] dark:bg-white/[0.05]' : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.05]'
+            }`
+          }
+        >
+          <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span
+                className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-white"
+                style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5 60%, #0891b2)' }}
+              >
+                {(fullName || user?.email || '?').slice(0, 2).toUpperCase()}
+              </span>
+            )}
+          </span>
+          <span className="truncate text-gray-600 dark:text-gray-300">{fullName || 'Your profile'}</span>
+        </NavLink>
       </nav>
 
       <main className="no-scrollbar relative z-10 flex-1 overflow-y-auto pb-24 md:pb-6">

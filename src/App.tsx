@@ -12,6 +12,7 @@ import PracticeSetPage from './pages/PracticeSetPage'
 import SlidesPage from './pages/SlidesPage'
 import SlideDeckPage from './pages/SlideDeckPage'
 import SchedulePage from './pages/SchedulePage'
+import ProfilePage from './pages/ProfilePage'
 
 function App() {
   const init = useAuthStore((s) => s.init)
@@ -38,6 +39,7 @@ function App() {
                   <Route path="/slides" element={<SlidesPage />} />
                   <Route path="/slides/:id" element={<SlideDeckPage />} />
                   <Route path="/schedule" element={<SchedulePage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
                 </Routes>
               </AppShell>
             </ProtectedRoute>

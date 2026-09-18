@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Download, Mic, Paperclip, Printer, Square, Trash2 } from 'lucide-react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Camera, ChevronLeft, Download, Mic, Paperclip, Printer, Square, Trash2 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import {
   attachMaterial,
   deleteNote,
+  getMaterialUrl,
   listMaterials,
   removeMaterial,
   uploadLectureAudio,
   updateNote,
 } from '../lib/data'
-import { requestTranscription } from '../lib/transcription'
+import { requestImageTranscription, requestTranscription } from '../lib/transcription'
 import { useRecorder } from '../lib/useRecorder'
 import { supabase } from '../lib/supabaseClient'
 import type { Note, NoteMaterial } from '../types/domain'
@@ -25,8 +26,11 @@ function formatElapsed(ms: number) {
 export default function NoteEditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuthStore()
   const recorder = useRecorder()
+  const autoScan = Boolean((location.state as { autoScan?: boolean } | null)?.autoScan)
+  const autoScanTriggered = useRef(false)
 
   const [note, setNote] = useState<Note | null>(null)
   const [materials, setMaterials] = useState<NoteMaterial[]>([])
@@ -36,7 +40,11 @@ export default function NoteEditorPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [transcribing, setTranscribing] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null)
+  const [materialUrls, setMaterialUrls] = useState<Record<string, string>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const saveTimer = useRef<number | null>(null)
 
   useEffect(() => {
@@ -137,6 +145,37 @@ export default function NoteEditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recorder.blob])
 
+  // Coming from the "Scan handwritten" quick action — open the camera/photo
+  // picker automatically instead of making the student tap the icon again.
+  useEffect(() => {
+    if (autoScan && !loading && note && !autoScanTriggered.current) {
+      autoScanTriggered.current = true
+      photoInputRef.current?.click()
+    }
+  }, [autoScan, loading, note])
+
+  // Thumbnail previews for image materials (signed URLs, so fetched lazily
+  // whenever the material list changes rather than kept as public links).
+  useEffect(() => {
+    let cancelled = false
+    async function loadThumbnails() {
+      const images = materials.filter((m) => m.fileType?.startsWith('image/') && !materialUrls[m.id])
+      for (const m of images) {
+        try {
+          const url = await getMaterialUrl(m.filePath)
+          if (!cancelled) setMaterialUrls((prev) => ({ ...prev, [m.id]: url }))
+        } catch {
+          // A thumbnail failing to load isn't worth surfacing as an error.
+        }
+      }
+    }
+    loadThumbnails()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [materials])
+
   const handleAttach = async (file: File) => {
     if (!user || !note) return
     setError(null)
@@ -145,6 +184,47 @@ export default function NoteEditorPage() {
       setMaterials((prev) => [...prev, material])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not attach that file.')
+    }
+  }
+
+  // Photographed handwritten (or printed) pages: attach each as a material
+  // for reference, then OCR it straight into the note's text content — the
+  // same "capture → merge into content" pattern the voice recorder uses, so
+  // scanned notes end up living in the exact same place as typed/recorded ones.
+  const handleScanPhotos = async (files: FileList) => {
+    if (!user || !note || files.length === 0) return
+    setError(null)
+    setScanning(true)
+    setScanProgress({ done: 0, total: files.length })
+    let merged = content
+    try {
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const material = await attachMaterial(user.id, note.id, files[i])
+          setMaterials((prev) => [...prev, material])
+          const { transcript } = await requestImageTranscription(material.filePath)
+          if (transcript && !transcript.startsWith('[No readable text')) {
+            merged = merged ? `${merged}\n\n${transcript}` : transcript
+            setContent(merged)
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Could not scan one of the photos.')
+        } finally {
+          setScanProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
+        }
+      }
+      if (merged !== note.content) {
+        await updateNote(note.id, {
+          content: merged,
+          captureMode: note.captureMode === 'manual' ? 'photo' : note.captureMode,
+          transcriptionStatus: 'done',
+          transcriptionEngine: 'claude-vision',
+        })
+        setNote((prev) => (prev ? { ...prev, transcriptionStatus: 'done' } : prev))
+      }
+    } finally {
+      setScanning(false)
+      setScanProgress(null)
     }
   }
 
@@ -220,9 +300,30 @@ export default function NoteEditorPage() {
             <Mic size={15} /> {transcribing ? 'Transcribing…' : 'Record more'}
           </button>
         )}
+        <button
+          onClick={() => photoInputRef.current?.click()}
+          disabled={scanning}
+          className="btn-secondary !px-3"
+          aria-label="Scan handwritten notes"
+        >
+          <Camera size={15} />
+        </button>
         <button onClick={() => fileInputRef.current?.click()} className="btn-secondary !px-3">
           <Paperclip size={15} />
         </button>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = e.target.files
+            if (files && files.length > 0) handleScanPhotos(files)
+            e.target.value = ''
+          }}
+        />
         <input
           ref={fileInputRef}
           type="file"
@@ -235,11 +336,16 @@ export default function NoteEditorPage() {
         />
       </div>
       {recorder.error && <p className="text-xs text-red-500">{recorder.error}</p>}
+      {scanning && (
+        <p className="text-xs text-muted">
+          Scanning page{scanProgress && scanProgress.total > 1 ? `s (${scanProgress.done}/${scanProgress.total})` : ''}…
+        </p>
+      )}
 
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        placeholder="Type notes here, or record the class and the transcript will appear here for editing…"
+        placeholder="Type notes here, record the class, or scan a handwritten page — the text shows up here either way…"
         className="input-field min-h-56 flex-1 resize-none leading-relaxed"
       />
 
@@ -248,8 +354,15 @@ export default function NoteEditorPage() {
           <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">Attached materials</h2>
           <div className="flex flex-col gap-2">
             {materials.map((m) => (
-              <div key={m.id} className="glass-card flex items-center justify-between rounded-xl px-3 py-2 text-sm">
-                <span className="truncate">{m.fileName}</span>
+              <div key={m.id} className="glass-card flex items-center gap-3 rounded-xl px-3 py-2 text-sm">
+                {m.fileType?.startsWith('image/') && materialUrls[m.id] ? (
+                  <img
+                    src={materialUrls[m.id]}
+                    alt={m.fileName}
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                  />
+                ) : null}
+                <span className="min-w-0 flex-1 truncate">{m.fileName}</span>
                 <button onClick={() => handleRemoveMaterial(m)} className="text-muted hover:text-red-500">
                   <Trash2 size={14} />
                 </button>

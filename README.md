@@ -9,6 +9,13 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
 - Timetable now has a real weekly grid (like a printed university routine) plus a "Today" agenda strip that highlights what's happening now vs. next, and a "Mark attended" button on today's classes that awards XP — attendance now feeds the leveling system directly.
 - Grades/GPA groups courses by semester (or year, or term — whatever you name it), shows each group's own GPA plus one cumulative CGPA, so it works for both semester-system and year-system universities.
 
+## Handwritten notes, unified AI prep, and a real profile (post-launch feedback)
+
+- **Scan handwritten notes.** Notes now has a third capture mode alongside typing and recording: "Scan handwritten." Photograph (or upload) one or more pages of a handwritten notebook and Claude's vision API (`supabase/functions/transcribe-image`, reusing the same `ANTHROPIC_API_KEY` already set for the other AI functions — no new key needed) OCRs each page straight into the note's text, the same way a recorded lecture's audio gets speech-to-text'd into the note. The original photos stay attached below as thumbnails for reference. Because scanned text lands in the exact same `content` field as typed and recorded notes, every note — typed, recorded, or scanned — shows up together in the **All notes** tab with no separate path to manage.
+- **AI practice/exams now read study materials too, not just note text.** `generate-practice` was extended to pull in each selected note's attached images and PDFs (a scanned past exam, a textbook chapter, a slide PDF) as direct vision/document input to Claude alongside the notes' own text, so "make practice questions" or "take an exam" draws on both the notes *and* whatever study materials are attached to them — exactly the "notes and study materials" combination asked for. Capped at 8 attached files per generation to keep requests reasonable.
+- **A real profile page** (`/profile`, linked from the avatar in the top-right on Home and at the bottom of the desktop sidebar): editable name and university, an uploadable profile photo (new `avatars` storage bucket), and a stats strip (level, XP, day streak, note/course counts). Sign-out now lives here instead of a stray icon on Home.
+- New migration `0008_photo_notes_and_profile.sql`: adds `'photo'` to the notes capture-mode check constraint, adds `avatar_url` to `profiles`, and creates the public-read/owner-write `avatars` storage bucket.
+
 ## Theming fixes (post-launch feedback)
 
 - The app now commits to a single always-dark theme instead of switching with the OS: `@custom-variant dark (&);` in `src/index.css` forces every `dark:` Tailwind class on unconditionally, and `color-scheme: dark` is set globally. This directly fixes native `<select>` dropdown popups (course picker, letter-grade picker, etc.) rendering with illegible light/white system chrome against the dark page — `select`/`input`/`textarea` get an explicit `color-scheme: dark`, and `option` elements get explicit dark background/text colors, so the popup list now matches the app instead of falling back to the OS's light theme.
@@ -61,19 +68,20 @@ All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGa
 
 ## Setup
 
-1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0007_attendance.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
+1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0008_photo_notes_and_profile.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
 2. **Install & run**: `npm install`, then `npm run dev`.
 3. **Deploy the edge functions** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```
    supabase login
    supabase link --project-ref <your-project-ref>   # ref is the xxxx in https://xxxx.supabase.co
    supabase functions deploy transcribe-audio
+   supabase functions deploy transcribe-image
    supabase functions deploy generate-practice
    supabase functions deploy grade-attempt
    supabase functions deploy generate-slides
    supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
    ```
-   Get an Anthropic API key at console.anthropic.com — this is what powers practice/exam generation, grading, and slide/script generation (same Haiku-for-cost choice IELTSGate made).
+   Get an Anthropic API key at console.anthropic.com — this is what powers practice/exam generation, grading, slide/script generation, and now handwritten-note OCR too (same Haiku-for-cost choice IELTSGate made; no separate OCR key needed). If you already have `generate-practice` deployed from before, redeploy it — it changed this round to also read attached study materials.
 4. **Transcription engine (open decision)**: the plan flags this as the biggest technical risk — most STT is tuned for clean audio, not a real lecture hall. Before picking one, test 2-3 of Deepgram Nova-3 / GPT-4o Transcribe / AssemblyAI Universal-2 / ElevenLabs Scribe against a clean clip, a noisy classroom clip, and a jargon-heavy clip. Once decided:
    ```
    supabase secrets set TRANSCRIPTION_ENGINE=deepgram DEEPGRAM_API_KEY=...

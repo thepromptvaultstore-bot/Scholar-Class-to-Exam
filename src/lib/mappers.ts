@@ -1,5 +1,14 @@
-import type { NoteRow, SemesterRow, SubjectRow, NoteMaterialRow } from '../types/database'
-import type { Note, Semester, Subject, NoteMaterial } from '../types/domain'
+import type { NoteRow, SemesterRow, SubjectRow, NoteMaterialRow, ProfileRow } from '../types/database'
+import type { Note, Semester, Subject, NoteMaterial, Profile } from '../types/domain'
+
+export const profileFromRow = (r: ProfileRow, email: string | null = null): Profile => ({
+  id: r.id,
+  fullName: r.full_name,
+  university: r.university,
+  avatarUrl: r.avatar_url,
+  email,
+  createdAt: r.created_at,
+})
 
 export const semesterFromRow = (r: SemesterRow): Semester => ({
   id: r.id,

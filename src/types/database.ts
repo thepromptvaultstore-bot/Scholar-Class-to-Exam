@@ -2,13 +2,14 @@
 // Once the real project exists, regenerate with:
 //   npx supabase gen types typescript --project-id <ref> > src/types/database.ts
 
-export type CaptureMode = 'manual' | 'voice'
+export type CaptureMode = 'manual' | 'voice' | 'photo'
 export type TranscriptionStatus = 'none' | 'pending' | 'processing' | 'done' | 'failed'
 
 export interface ProfileRow {
   id: string
   full_name: string | null
   university: string | null
+  avatar_url: string | null
   created_at: string
 }
 

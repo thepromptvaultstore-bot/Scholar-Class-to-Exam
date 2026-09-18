@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen,
+  Camera,
   Check,
   GraduationCap,
   Layers,
@@ -161,7 +162,7 @@ function AllNotesTab({
     })
     .sort((a, b) => b.sessionDate.localeCompare(a.sessionDate))
 
-  const handleStartNote = async (mode: 'manual' | 'voice') => {
+  const handleStartNote = async (mode: 'manual' | 'voice' | 'photo') => {
     if (!userId || !newNoteSubject) return
     setBusy(true)
     setError(null)
@@ -169,11 +170,11 @@ function AllNotesTab({
       const date = todayISO()
       const existing = await findNoteForSubjectAndDate(newNoteSubject, date)
       if (existing) {
-        navigate(`/notes/${existing.id}`)
+        navigate(`/notes/${existing.id}`, { state: mode === 'photo' ? { autoScan: true } : undefined })
         return
       }
       const note = await createNote(userId, newNoteSubject, date, mode)
-      navigate(`/notes/${note.id}`)
+      navigate(`/notes/${note.id}`, { state: mode === 'photo' ? { autoScan: true } : undefined })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start a new note.')
     } finally {
@@ -271,13 +272,20 @@ function AllNotesTab({
               )
             })}
           </select>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               disabled={busy}
               onClick={() => handleStartNote('voice')}
               className="btn-primary flex-1 !py-2.5 text-xs"
             >
               <Mic size={14} /> Record class
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => handleStartNote('photo')}
+              className="btn-secondary flex-1 !py-2.5 text-xs"
+            >
+              <Camera size={14} /> Scan handwritten
             </button>
             <button
               disabled={busy}
@@ -315,7 +323,7 @@ function AllNotesTab({
                   <p className="truncate text-xs text-muted">
                     {subject?.name ?? 'Unknown course'}
                     {semester ? ` · ${semester.name}` : ''} · {n.sessionDate} ·{' '}
-                    {n.captureMode === 'voice' ? 'Recorded' : 'Typed'}
+                    {n.captureMode === 'voice' ? 'Recorded' : n.captureMode === 'photo' ? 'Scanned' : 'Typed'}
                   </p>
                 </div>
               </button>

@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Flame, LogOut, Plus, Sparkles } from 'lucide-react'
+import { BookOpen, Flame, Plus, Sparkles } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
-import { listSemesters, listSubjects, listNotes } from '../lib/data'
+import { getProfile, listSemesters, listSubjects, listNotes } from '../lib/data'
 import { getKnowledgeForSubjects, getLevelInfo, getStreakDays } from '../lib/gamification'
 import type { Semester, Subject, Note } from '../types/domain'
 import type { LevelInfo, SubjectKnowledge } from '../types/gamification'
 
 export default function HomePage() {
-  const { user, signOut } = useAuthStore()
+  const { user } = useAuthStore()
   const [semesters, setSemesters] = useState<Semester[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [recentNotes, setRecentNotes] = useState<Note[]>([])
   const [levelInfo, setLevelInfo] = useState<LevelInfo | null>(null)
   const [streak, setStreak] = useState(0)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [knowledge, setKnowledge] = useState<Record<string, SubjectKnowledge>>({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -35,6 +36,13 @@ export default function HomePage() {
         setRecentNotes(notes.slice(0, 3))
         setLevelInfo(level)
         setStreak(streakDays)
+        if (user) {
+          getProfile(user.id, user.email ?? null)
+            .then((p) => {
+              if (!cancelled) setAvatarUrl(p.avatarUrl)
+            })
+            .catch(() => {})
+        }
         if (subj.length > 0) {
           getKnowledgeForSubjects(subj.map((x) => x.id))
             .then((k) => {
@@ -52,7 +60,8 @@ export default function HomePage() {
     return () => {
       cancelled = true
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   const activeSemester = semesters.find((s) => s.isActive) ?? semesters[0]
 
@@ -65,13 +74,18 @@ export default function HomePage() {
             {user?.user_metadata?.full_name || user?.email}
           </h1>
         </div>
-        <button
-          onClick={() => signOut()}
-          className="glass-card flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:text-red-500"
-          aria-label="Sign out"
-        >
-          <LogOut size={16} />
-        </button>
+        <Link to="/profile" className="h-9 w-9 shrink-0 overflow-hidden rounded-full" aria-label="Your profile">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div
+              className="flex h-full w-full items-center justify-center text-xs font-semibold text-white"
+              style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5 60%, #0891b2)' }}
+            >
+              {(user?.user_metadata?.full_name || user?.email || '?').slice(0, 2).toUpperCase()}
+            </div>
+          )}
+        </Link>
       </div>
 
       <div

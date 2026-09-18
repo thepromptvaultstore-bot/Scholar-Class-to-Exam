@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient'
-import { semesterFromRow, subjectFromRow, noteFromRow, materialFromRow } from './mappers'
+import { semesterFromRow, subjectFromRow, noteFromRow, materialFromRow, profileFromRow } from './mappers'
 import { awardNoteCaptured } from './gamification'
-import type { Note, Semester, Subject, NoteMaterial } from '../types/domain'
+import type { Note, Semester, Subject, NoteMaterial, Profile } from '../types/domain'
 
 // Every call assumes an authenticated session — RLS enforces that a user
 // only ever sees their own rows, so no explicit user_id filters are needed
@@ -144,14 +144,27 @@ export async function createNote(
 
 export async function updateNote(
   id: string,
-  patch: Partial<Pick<Note, 'title' | 'content' | 'rawTranscript' | 'transcriptionStatus' | 'audioPath'>>,
+  patch: Partial<
+    Pick<
+      Note,
+      | 'title'
+      | 'content'
+      | 'rawTranscript'
+      | 'transcriptionStatus'
+      | 'transcriptionEngine'
+      | 'audioPath'
+      | 'captureMode'
+    >
+  >,
 ): Promise<Note> {
   const dbPatch: Record<string, unknown> = {}
   if (patch.title !== undefined) dbPatch.title = patch.title
   if (patch.content !== undefined) dbPatch.content = patch.content
   if (patch.rawTranscript !== undefined) dbPatch.raw_transcript = patch.rawTranscript
   if (patch.transcriptionStatus !== undefined) dbPatch.transcription_status = patch.transcriptionStatus
+  if (patch.transcriptionEngine !== undefined) dbPatch.transcription_engine = patch.transcriptionEngine
   if (patch.audioPath !== undefined) dbPatch.audio_path = patch.audioPath
+  if (patch.captureMode !== undefined) dbPatch.capture_mode = patch.captureMode
 
   const { data, error } = await supabase.from('notes').update(dbPatch).eq('id', id).select().single()
   if (error) throw error
@@ -218,4 +231,43 @@ export async function uploadLectureAudio(userId: string, noteId: string, blob: B
     .upload(path, blob, { upsert: true, contentType: blob.type || 'audio/webm' })
   if (error) throw error
   return path
+}
+
+// --- Profile -----------------------------------------------------------------
+
+export async function getProfile(userId: string, email: string | null): Promise<Profile> {
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+  if (error) throw error
+  return profileFromRow(data, email)
+}
+
+export async function updateProfile(
+  userId: string,
+  patch: Partial<Pick<Profile, 'fullName' | 'university' | 'avatarUrl'>>,
+): Promise<Profile> {
+  const dbPatch: Record<string, string | null> = {}
+  if (patch.fullName !== undefined) dbPatch.full_name = patch.fullName
+  if (patch.university !== undefined) dbPatch.university = patch.university
+  if (patch.avatarUrl !== undefined) dbPatch.avatar_url = patch.avatarUrl
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(dbPatch)
+    .eq('id', userId)
+    .select()
+    .single()
+  if (error) throw error
+  return profileFromRow(data)
+}
+
+export async function uploadAvatar(userId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `${userId}/avatar.${ext}`
+  const { error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type || 'image/jpeg' })
+  if (error) throw error
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+  // Cache-bust so the new photo shows immediately, since the path is stable.
+  return `${data.publicUrl}?t=${Date.now()}`
 }
