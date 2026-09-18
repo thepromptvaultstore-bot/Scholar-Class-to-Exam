@@ -40,3 +40,23 @@ export interface Note {
   createdAt: string
   updatedAt: string
 }
+
+export interface ClassScheduleEntry {
+  id: string
+  subjectId: string
+  dayOfWeek: number // 0 = Sunday .. 6 = Saturday
+  startTime: string // 'HH:MM' or 'HH:MM:SS'
+  endTime: string
+  location: string | null
+}
+
+export interface Reminder {
+  id: string
+  subjectId: string | null
+  title: string
+  note: string | null
+  remindAt: string
+  notified: boolean
+  isDone: boolean
+  createdAt: string
+}

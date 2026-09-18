@@ -1,14 +1,37 @@
 # Scholar: Class to Exam
 
-Phase 1 (Capture & Notes) of the product plan, built and building clean. Same stack as Rise Up / IELTSGate: React + Vite + TypeScript + Tailwind, Supabase backend, Vercel web hosting, Capacitor for the Android shell.
+All 7 modules of the product plan are now built. Same stack as Rise Up / IELTSGate: React + Vite + TypeScript + Tailwind, Supabase backend, Vercel web hosting, Capacitor for the Android shell. Full responsive layout — a sidebar nav on desktop/tablet, a bottom tab bar on mobile — not a phone-width-only shell.
 
-## What's built (Phase 2)
+## What's built (Phase 6 — Grades / GPA Calculator)
+
+- A user-editable letter-grade → GPA-points scale (`grade_scale_entries`), seeded with a standard US 4.0 scale (A=4.0 … F=0.0) that can be reset or customized per entry
+- Per-subject grade entry (credit hours + either a percent or a direct letter grade — a letter wins if both are set) on the Schedule tab's "Grades / GPA" view
+- Live cumulative GPA, computed client-side from credit-weighted quality points
+
+## What's built (Phase 5 — Slides & Presentation Generator)
+
+- Topic + selected notes → a slide deck AND a matching presentation script, generated together in one AI call (`supabase/functions/generate-slides`) so the script actually matches what's on each slide
+- A single-slide viewer (prev/next, bullets big, script toggle below) plus a print/export view that lays out the whole deck with its script for printing or plain-text download
+
+## What's built (Phase 4 — Gamified Knowledge Stats & Leveling)
+
+- An XP event log (`xp_events`) awarding points for capturing a note, generating a practice set, and — scaled to the score — completing a graded attempt
+- A level/XP bar on Home (100 XP per level) and a day-streak counter (consecutive days with any XP-earning activity)
+- Per-subject "knowledge score": a recency-weighted average of a subject's graded practice/exam attempts, shown as a mastery badge next to each subject
+
+## What's built (Phase 3 — Timetable & Time Management)
+
+- A weekly recurring class schedule (day, time, location) grouped by day on the Schedule tab
+- Standalone reminders (assignment due dates, study sessions, exams) with an in-app browser-notification poller (`useReminderNotifications`) that fires while the app is open — see "Notes on choices made" below for why this isn't a true push-notification system yet
+- Mark-done / delete for reminders, sorted upcoming-first
+
+## What's built (Phase 2 — AI Practice & Test Generation)
 
 - AI practice/exam generation from one note, several notes, or a whole subject (`supabase/functions/generate-practice`), using Claude to write quiz-format (MCQ/true-false/fill-blank) or exam-format (short-answer/essay) questions matching the plan's spec
 - Rubric-based grading (`supabase/functions/grade-attempt`): objective questions checked directly, essay/short-answer graded against an AI-generated rubric with partial credit — a real academic standard, not keyword matching
 - A Practice tab: pick a subject + notes → generate → take it → see per-question scored feedback and past attempts
 
-## What's built (Phase 1)
+## What's built (Phase 1 — Capture & Notes)
 
 - Auth (Supabase email/password, PKCE flow)
 - Semesters → subjects/courses → one note per class session
@@ -16,19 +39,17 @@ Phase 1 (Capture & Notes) of the product plan, built and building clean. Same st
 - Attach lecturer materials (PDFs/slides) to a note
 - Export (plain text) and print
 - A pluggable transcription layer (`supabase/functions/transcribe-audio`) with adapters for Deepgram, OpenAI, AssemblyAI, and ElevenLabs — no engine is picked yet (see "Open decision" below), so until one is configured, voice notes save with a placeholder instead of a real transcript
-- App shell with Home / Notes / Practice / Slides / Schedule tabs — the last three are "Coming soon" placeholders for later phases
+- App shell with Home / Notes / Practice / Slides / Schedule tabs, responsive across phone/tablet/desktop widths
 
-## Not built yet (later phases, per the plan's build order)
+## Not built yet
 
-3. Timetable with reminders
-4. Gamified knowledge score / streaks / levels
-5. Slides + presentation script generator
-6. GPA calculator
-7. Full commercial-launch polish (this already uses per-user accounts from day one, so no rearchitecture needed later)
+7. Final commercial-launch polish pass (this already uses per-user accounts, RLS, and responsive layout from day one, so no rearchitecture is needed — this is copy/UX refinement once you've used the app for real)
+- Picking and wiring a transcription engine (see "Open decision" below) — voice notes save with a placeholder transcript until one is configured
+- True push notifications for reminders (current version only alerts while the app tab is open — see "Notes on choices made")
 
 ## Setup
 
-1. **Supabase**: create a project, then run `supabase/migrations/0001_init.sql` and `0002_practice.sql` (in that order) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
+1. **Supabase**: create a project, then run every file in `supabase/migrations/` **in order** (`0001_init.sql` through `0006_grades.sql`) in its SQL editor. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from Settings → API.
 2. **Install & run**: `npm install`, then `npm run dev`.
 3. **Deploy the edge functions** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```
@@ -37,9 +58,10 @@ Phase 1 (Capture & Notes) of the product plan, built and building clean. Same st
    supabase functions deploy transcribe-audio
    supabase functions deploy generate-practice
    supabase functions deploy grade-attempt
+   supabase functions deploy generate-slides
    supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
    ```
-   Get an Anthropic API key at console.anthropic.com — this is what powers practice/exam generation and grading (same Haiku-for-cost choice IELTSGate made).
+   Get an Anthropic API key at console.anthropic.com — this is what powers practice/exam generation, grading, and slide/script generation (same Haiku-for-cost choice IELTSGate made).
 4. **Transcription engine (open decision)**: the plan flags this as the biggest technical risk — most STT is tuned for clean audio, not a real lecture hall. Before picking one, test 2-3 of Deepgram Nova-3 / GPT-4o Transcribe / AssemblyAI Universal-2 / ElevenLabs Scribe against a clean clip, a noisy classroom clip, and a jargon-heavy clip. Once decided:
    ```
    supabase secrets set TRANSCRIPTION_ENGINE=deepgram DEEPGRAM_API_KEY=...
@@ -56,3 +78,7 @@ Phase 1 (Capture & Notes) of the product plan, built and building clean. Same st
 - **RLS everywhere**: every table is user-scoped with a policy checking `auth.uid() = user_id`; storage buckets (`lecture-audio`, `note-materials`) are scoped by a `<user_id>/...` folder prefix policy. Nothing here trusts the client.
 - **One note per subject per day is a soft default, not a hard constraint**: the UI looks up an existing note for today before creating a new one (so recording twice the same day continues the same note), but there's no DB-level unique constraint blocking a genuine second session.
 - **Transcript stays editable**: a voice note's transcript is merged into the same editable `content` field the manual-typing flow uses, with the raw untouched transcript kept separately in `raw_transcript` for reference — so "record → fix a few misheard words → done" is one continuous flow, not two separate views.
+- **XP is an event log, not a counter**: `xp_events` stores one row per activity instead of a single running total, so both the lifetime level and the day-streak (distinct activity dates) come from the same table without a second write path that could drift out of sync.
+- **Reminders are polled, not pushed**: real push notifications need a service worker plus a push server round-trip, which is meaningfully more infrastructure than this phase needs. Instead, `useReminderNotifications` polls every 30s while the app is open and fires a browser `Notification` for anything due — good enough for someone actively using the app, but it won't wake a closed tab. This is a deliberate scope line for this phase, not an oversight; upgrading to real push is a self-contained follow-up (a service worker + a scheduled server function) if you want a closed-app alert later.
+- **A letter grade overrides a percent, not the other way round**: `course_grades` stores both so you can track an in-progress percent before a final letter is assigned, but GPA math always prefers an explicit letter when both are present.
+- **Knowledge score is recency-weighted, not a flat average**: a subject's mastery badge weights its most recent graded attempts more heavily (harmonic weighting over the last 10), so recent improvement moves the number faster than one old bad attempt can hold it down.

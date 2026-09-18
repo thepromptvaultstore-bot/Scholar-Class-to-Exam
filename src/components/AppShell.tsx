@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { BookOpen, GraduationCap, Home, Presentation, CalendarClock, GraduationCap as Logo } from 'lucide-react'
+import { useAuthStore } from '../store/authStore'
+import { useReminderNotifications } from '../lib/useReminderNotifications'
 
 const tabs = [
   { to: '/', label: 'Home', icon: Home },
@@ -11,6 +13,9 @@ const tabs = [
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const userId = useAuthStore((s) => s.user?.id)
+  useReminderNotifications(userId)
+
   return (
     <div className="flex h-dvh w-full bg-white dark:bg-[#161320]">
       {/* Desktop / tablet sidebar */}

@@ -114,7 +114,7 @@ export default function PracticeSetPage() {
       await Promise.all(
         questions.map((q) => saveAnswer(attempt.id, q.id, answers[q.id] ?? '')),
       )
-      await submitAttempt(attempt.id)
+      await submitAttempt(attempt.id, user?.id, set?.subjectId)
       await handleViewResult(attempt.id)
       const atts = await listAttempts(id!)
       setPastAttempts(atts)

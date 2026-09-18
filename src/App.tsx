@@ -10,6 +10,7 @@ import NoteEditorPage from './pages/NoteEditorPage'
 import PracticePage from './pages/PracticePage'
 import PracticeSetPage from './pages/PracticeSetPage'
 import SlidesPage from './pages/SlidesPage'
+import SlideDeckPage from './pages/SlideDeckPage'
 import SchedulePage from './pages/SchedulePage'
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
                   <Route path="/practice" element={<PracticePage />} />
                   <Route path="/practice/:id" element={<PracticeSetPage />} />
                   <Route path="/slides" element={<SlidesPage />} />
+                  <Route path="/slides/:id" element={<SlideDeckPage />} />
                   <Route path="/schedule" element={<SchedulePage />} />
                 </Routes>
               </AppShell>

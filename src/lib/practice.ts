@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { awardPracticeGenerated, awardPracticeGraded } from './gamification'
 import type {
   PracticeAnswer,
   PracticeAttempt,
@@ -91,6 +92,7 @@ export async function createPracticeSet(
   })
   if (fnError) throw fnError
 
+  awardPracticeGenerated(userId, subjectId)
   return set
 }
 
@@ -134,12 +136,18 @@ export async function saveAnswer(
   if (error) throw error
 }
 
-export async function submitAttempt(attemptId: string): Promise<number> {
+export async function submitAttempt(
+  attemptId: string,
+  userId?: string,
+  subjectId?: string,
+): Promise<number> {
   const { data, error } = await supabase.functions.invoke('grade-attempt', {
     body: { attemptId },
   })
   if (error) throw error
-  return data.totalScore as number
+  const totalScore = data.totalScore as number
+  if (userId && subjectId) awardPracticeGraded(userId, subjectId, totalScore)
+  return totalScore
 }
 
 export async function getAttempt(id: string): Promise<PracticeAttempt> {

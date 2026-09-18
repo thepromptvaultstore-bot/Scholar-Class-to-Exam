@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { semesterFromRow, subjectFromRow, noteFromRow, materialFromRow } from './mappers'
+import { awardNoteCaptured } from './gamification'
 import type { Note, Semester, Subject, NoteMaterial } from '../types/domain'
 
 // Every call assumes an authenticated session — RLS enforces that a user
@@ -105,6 +106,7 @@ export async function createNote(
     .select()
     .single()
   if (error) throw error
+  awardNoteCaptured(userId, subjectId)
   return noteFromRow(data)
 }
 
