@@ -11,6 +11,7 @@ import {
   getLevelInfo,
   getStreakDays,
   getTodayXp,
+  spendStreakFreezeToday,
 } from '../lib/gamification'
 import { LEAGUE_TIERS, type BadgeDef } from '../types/gamification'
 import type { Semester, Subject, Note, Profile } from '../types/domain'
@@ -29,6 +30,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [newBadges, setNewBadges] = useState<BadgeDef[]>([])
+  const [savingStreak, setSavingStreak] = useState(false)
+  const [streakSaved, setStreakSaved] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -96,6 +99,28 @@ export default function HomePage() {
   const goalPct = Math.min(100, Math.round((todayXp / dailyGoal) * 100))
   const tierInfo = LEAGUE_TIERS.find((t) => t.tier === (profile?.leagueTier ?? 'bronze'))!
 
+  // Offer a manual save only when there's something to protect (an existing
+  // streak), nothing has kept today alive yet, and a freeze is actually
+  // available to spend — covers days with no notes/practice to log, without
+  // requiring the user to wait for an already-missed day to be auto-covered.
+  const canSaveStreakToday =
+    !loading && streak > 0 && todayXp === 0 && !streakSaved && (profile?.streakFreezeCount ?? 0) > 0
+
+  const handleSaveStreak = async () => {
+    if (!user || savingStreak) return
+    setSavingStreak(true)
+    try {
+      const ok = await spendStreakFreezeToday(user.id)
+      if (ok) {
+        setStreakSaved(true)
+        setStreak((s) => s + 1)
+        setProfile((p) => (p ? { ...p, streakFreezeCount: Math.max(0, p.streakFreezeCount - 1) } : p))
+      }
+    } finally {
+      setSavingStreak(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5 px-5 pt-6">
       <div className="flex items-center justify-between">
@@ -155,6 +180,34 @@ export default function HomePage() {
           {(levelInfo?.level ?? 1) + 1} — earned from notes, practice, and test scores.
         </p>
       </div>
+
+      {canSaveStreakToday && (
+        <div className="glass-card flex items-center justify-between gap-3 rounded-2xl border border-indigo-400/40 p-3">
+          <div className="flex items-center gap-2">
+            <Shield size={18} className="shrink-0 text-indigo-500" />
+            <p className="text-xs font-medium text-gray-900 dark:text-white">
+              No notes today yet? Use a freeze to keep your {streak}-day streak
+              {' '}({profile?.streakFreezeCount} left).
+            </p>
+          </div>
+          <button
+            onClick={handleSaveStreak}
+            disabled={savingStreak}
+            className="shrink-0 rounded-full bg-indigo-500 px-3 py-1.5 text-[11px] font-semibold text-white"
+          >
+            {savingStreak ? 'Saving…' : 'Save streak'}
+          </button>
+        </div>
+      )}
+
+      {streakSaved && (
+        <div className="glass-card flex items-center gap-2 rounded-2xl border border-emerald-400/40 p-3">
+          <Shield size={16} className="shrink-0 text-emerald-500" />
+          <p className="text-xs font-medium text-gray-900 dark:text-white">
+            Today's covered — your streak is safe. Come back tomorrow!
+          </p>
+        </div>
+      )}
 
       {newBadges.length > 0 && (
         <div className="glass-card flex items-center justify-between gap-3 rounded-2xl border border-amber-400/40 p-3">
@@ -283,4 +336,3 @@ export default function HomePage() {
     </div>
   )
 }
-

@@ -50,17 +50,34 @@ export async function getLevelInfo(): Promise<LevelInfo> {
   return levelFromXp(totalXp)
 }
 
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
+// The user's own calendar day, not UTC's. xp_events.created_at is a UTC
+// timestamp, and naively slicing its ISO string (or comparing against
+// `new Date().toISOString()`) buckets activity by the UTC date — which
+// rolls over at 6am in Bangladesh (UTC+6), not at local midnight. That
+// silently merges two different local "days" into one bucket (or splits
+// one local day into two) depending on what time someone studies, which is
+// exactly what makes a streak look stuck or broken to someone outside UTC.
+// Every day-boundary check for the streak/daily-goal uses local time instead.
+function localDateISO(d: Date = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-// Sum of XP logged today (UTC calendar day) — what the daily-goal ring on
+function startOfLocalDay(d: Date = new Date()): Date {
+  const start = new Date(d)
+  start.setHours(0, 0, 0, 0)
+  return start
+}
+
+// Sum of XP logged today (local calendar day) — what the daily-goal ring on
 // Home compares against the user's chosen goal.
 export async function getTodayXp(): Promise<number> {
   const { data, error } = await supabase
     .from('xp_events')
     .select('amount, created_at')
-    .gte('created_at', `${todayISO()}T00:00:00.000Z`)
+    .gte('created_at', startOfLocalDay().toISOString())
   if (error) throw error
   return (data ?? []).reduce((sum: number, r: { amount: number }) => sum + (r.amount ?? 0), 0)
 }
@@ -77,25 +94,24 @@ export async function getStreakDays(): Promise<number> {
   if (freezeRes.error) throw freezeRes.error
 
   const dates = new Set(
-    (eventsRes.data ?? []).map((r: { created_at: string }) => r.created_at.slice(0, 10)),
+    (eventsRes.data ?? []).map((r: { created_at: string }) => localDateISO(new Date(r.created_at))),
   )
   for (const r of freezeRes.data ?? []) dates.add((r as { covered_date: string }).covered_date)
   if (dates.size === 0) return 0
 
-  const toISO = (d: Date) => d.toISOString().slice(0, 10)
   const today = new Date()
-  let cursor = toISO(today)
-  if (!dates.has(cursor)) {
+  let cursorDate = today
+  if (!dates.has(localDateISO(cursorDate))) {
     // Streak can still be "alive" if the last activity was yesterday.
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
-    cursor = toISO(yesterday)
-    if (!dates.has(cursor)) return 0
+    cursorDate = yesterday
+    if (!dates.has(localDateISO(cursorDate))) return 0
   }
 
   let streak = 0
-  const cursorDate = new Date(cursor + 'T00:00:00Z')
-  while (dates.has(toISO(cursorDate))) {
+  cursorDate = new Date(cursorDate)
+  while (dates.has(localDateISO(cursorDate))) {
     streak += 1
     cursorDate.setDate(cursorDate.getDate() - 1)
   }
@@ -122,22 +138,21 @@ export async function applyStreakFreezeIfNeeded(userId: string): Promise<void> {
       .order('created_at', { ascending: false })
       .limit(500)
     if (error) throw error
-    const dates = new Set((data ?? []).map((r: { created_at: string }) => r.created_at.slice(0, 10)))
+    const dates = new Set((data ?? []).map((r: { created_at: string }) => localDateISO(new Date(r.created_at))))
 
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
     const twoDaysAgo = new Date(today)
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
-    const toISO = (d: Date) => d.toISOString().slice(0, 10)
 
-    const missedYesterday = !dates.has(toISO(yesterday))
-    const activeTwoDaysAgo = dates.has(toISO(twoDaysAgo))
+    const missedYesterday = !dates.has(localDateISO(yesterday))
+    const activeTwoDaysAgo = dates.has(localDateISO(twoDaysAgo))
     if (!missedYesterday || !activeTwoDaysAgo) return
 
     const { error: insertError } = await supabase
       .from('streak_freeze_log')
-      .insert({ user_id: userId, covered_date: toISO(yesterday) })
+      .insert({ user_id: userId, covered_date: localDateISO(yesterday) })
     if (insertError) {
       // Unique-constraint hit means this date was already covered — fine.
       return
@@ -149,6 +164,41 @@ export async function applyStreakFreezeIfNeeded(userId: string): Promise<void> {
   } catch {
     // Gamification should never block anything it's attached to.
   }
+}
+
+// Manual, proactive version of the freeze: called when the user explicitly
+// chooses to protect *today* instead of waiting for the automatic check to
+// retroactively cover a day they've already missed. This is what covers the
+// "I have no notes today" gap — a day doesn't need an XP-earning activity if
+// a freeze already marks it as covered. Returns false (no-op) if they're out
+// of freezes or today is already covered some other way, so the caller can
+// show an accurate message instead of a false "saved!".
+export async function spendStreakFreezeToday(userId: string): Promise<boolean> {
+  const today = localDateISO()
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('streak_freeze_count')
+    .eq('id', userId)
+    .single()
+  if (profileError || !profile || profile.streak_freeze_count <= 0) return false
+
+  const { error: insertError } = await supabase
+    .from('streak_freeze_log')
+    .insert({ user_id: userId, covered_date: today })
+  if (insertError) return false // already covered (real activity or an earlier freeze)
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ streak_freeze_count: profile.streak_freeze_count - 1 })
+    .eq('id', userId)
+  if (updateError) {
+    // Roll back the log entry so a failed decrement doesn't lock the day in
+    // as "covered" for free.
+    await supabase.from('streak_freeze_log').delete().eq('user_id', userId).eq('covered_date', today)
+    return false
+  }
+  return true
 }
 
 // Weighted-recent average score for a subject's graded practice attempts —
@@ -321,4 +371,3 @@ function nextTier(t: LeagueTier): LeagueTier {
 function prevTier(t: LeagueTier): LeagueTier {
   return TIER_ORDER[Math.max(TIER_ORDER.indexOf(t) - 1, 0)]
 }
-

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Copy, Flame, Trophy, UserPlus, Users } from 'lucide-react'
+import { ChevronLeft, Copy, Flame, Lock, Trophy, UserPlus, Users } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { getProfile } from '../lib/data'
 import { fetchFriendsBoard, addFriendByCode, removeFriend, type FriendsBoard } from '../lib/friends'
@@ -172,6 +172,49 @@ export default function LeaguePage() {
                 ? 'Top finishers this week promote, bottom finishers demote.'
                 : 'Add a friend to start competing for promotion.'}
             </p>
+          </div>
+
+          <div className="glass-card flex flex-col gap-1 rounded-2xl p-4">
+            <h2 className="mb-1 text-sm font-semibold text-gray-900 dark:text-white">League ladder</h2>
+            {LEAGUE_TIERS.map((t, i) => {
+              const currentIdx = LEAGUE_TIERS.findIndex((x) => x.tier === (profile?.leagueTier ?? 'bronze'))
+              const isCurrent = i === currentIdx
+              const isPassed = i < currentIdx
+              const isLocked = i > currentIdx
+              return (
+                <div
+                  key={t.tier}
+                  className={`flex items-center gap-3 rounded-xl p-2.5 ${
+                    isCurrent ? 'bg-indigo-500/10' : ''
+                  }`}
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white"
+                    style={{ background: t.color, opacity: isLocked ? 0.35 : 1 }}
+                  >
+                    {isLocked ? <Lock size={13} /> : <Trophy size={15} />}
+                  </span>
+                  <span
+                    className={`min-w-0 flex-1 text-sm font-medium ${
+                      isLocked ? 'text-muted' : 'text-gray-900 dark:text-white'
+                    }`}
+                  >
+                    {t.label}
+                  </span>
+                  {isCurrent && (
+                    <span className="shrink-0 rounded-full bg-indigo-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      You're here
+                    </span>
+                  )}
+                  {isPassed && <span className="shrink-0 text-[10px] font-medium text-emerald-500">Reached</span>}
+                  {isLocked && (
+                    <span className="shrink-0 text-[10px] text-muted">
+                      {i === currentIdx + 1 ? 'Promote to unlock' : 'Locked'}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           <div className="glass-card flex flex-col gap-3 rounded-2xl p-4">
