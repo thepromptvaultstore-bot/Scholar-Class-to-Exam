@@ -23,11 +23,30 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+// Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
+// request; without these headers the browser blocks the real request
+// before it's even sent, which surfaces in the app as "Failed to send a
+// request to the Edge Function" (a network-level failure, not a function
+// error — no amount of fixing the function body helps without this). This
+// one matters especially: get-shared is called by logged-out visitors
+// opening a public /s/:kind/:token link, with no auth header to fall back on.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
   try {
     const { token, kind } = await req.json()
     if (!token || (kind !== 'note' && kind !== 'practice')) {
-      return new Response(JSON.stringify({ error: 'token and a valid kind are required' }), { status: 400 })
+      return new Response(JSON.stringify({ error: 'token and a valid kind are required' }), {
+        status: 400,
+        headers: corsHeaders,
+      })
     }
 
     const supabase = createClient(
@@ -42,7 +61,10 @@ Deno.serve(async (req) => {
         .eq('share_token', token)
         .maybeSingle()
       if (error) throw error
-      if (!data) return new Response(JSON.stringify({ found: false }), { headers: { 'Content-Type': 'application/json' } })
+      if (!data)
+        return new Response(JSON.stringify({ found: false }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
       return new Response(
         JSON.stringify({
           found: true,
@@ -54,7 +76,7 @@ Deno.serve(async (req) => {
             captureMode: data.capture_mode,
           },
         }),
-        { headers: { 'Content-Type': 'application/json' } },
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
@@ -65,7 +87,9 @@ Deno.serve(async (req) => {
       .maybeSingle()
     if (setError) throw setError
     if (!set || set.status !== 'ready') {
-      return new Response(JSON.stringify({ found: false }), { headers: { 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ found: false }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const { data: questions, error: qError } = await supabase
@@ -90,12 +114,12 @@ Deno.serve(async (req) => {
           maxScore: q.max_score,
         })),
       }),
-      { headers: { 'Content-Type': 'application/json' } },
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err) {
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })

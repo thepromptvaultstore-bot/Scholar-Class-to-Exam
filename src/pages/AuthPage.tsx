@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { GraduationCap } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { useAuthStore } from '../store/authStore'
@@ -118,6 +118,18 @@ export default function AuthPage() {
         >
           {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
         </button>
+
+        <p className="mt-5 text-center text-[10.5px] text-muted">
+          By continuing you agree to Scholar's{' '}
+          <Link to="/terms" className="text-indigo-500">
+            Terms
+          </Link>{' '}
+          and{' '}
+          <Link to="/privacy" className="text-indigo-500">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
     </div>
   )

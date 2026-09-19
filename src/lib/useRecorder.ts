@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type RecorderState = 'idle' | 'recording' | 'paused' | 'stopped'
 
@@ -9,6 +9,7 @@ export function useRecorder() {
   const [error, setError] = useState<string | null>(null)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const startedAtRef = useRef(0)
   const tickRef = useRef<number | null>(null)
@@ -23,6 +24,7 @@ export function useRecorder() {
     setBlob(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
       const recorder = new MediaRecorder(stream)
       chunksRef.current = []
       recorder.ondataavailable = (e) => {
@@ -32,6 +34,7 @@ export function useRecorder() {
         const merged = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
         setBlob(merged)
         stream.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
       }
       recorder.start()
       mediaRecorderRef.current = recorder
@@ -64,6 +67,25 @@ export function useRecorder() {
     setElapsedMs(0)
     setBlob(null)
     setError(null)
+  }, [])
+
+  // Without this, navigating away (or the back button) mid-recording never
+  // calls stop()/reset() — the 250ms tick interval and the live mic stream
+  // both keep running after the component using this hook is gone, quietly
+  // draining battery and leaving the mic indicator on in the background.
+  useEffect(() => {
+    return () => {
+      clearTick()
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop()
+        } catch {
+          // already stopped/inactive — fall through to the direct track stop below
+        }
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
   }, [])
 
   return { state, elapsedMs, blob, error, start, stop, reset }

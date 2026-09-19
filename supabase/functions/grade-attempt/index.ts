@@ -15,6 +15,17 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+// Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
+// request; without these headers the browser blocks the real request
+// before it's even sent, which surfaces in the app as "Failed to send a
+// request to the Edge Function" (a network-level failure, not a function
+// error — no amount of fixing the function body helps without this).
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 const MODEL = 'claude-haiku-4-5'
 
 const GRADING_SYSTEM_PROMPT = `You are grading a university student's short-answer/essay response the way a fair professor would: partial credit for a partially correct or incomplete answer, full credit only when the rubric's criteria are genuinely met.
@@ -26,10 +37,21 @@ function normalize(s: string) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+  // Captured here (not re-read/cloned in the catch block) because a Request
+  // body can only be consumed once — re-cloning after `req.json()` had
+  // already read the stream was throwing, silently swallowing every
+  // failure and leaving the row stuck at status='grading' forever.
+  let attemptId: string | undefined
   try {
-    const { attemptId } = await req.json()
+    ;({ attemptId } = await req.json())
     if (!attemptId) {
-      return new Response(JSON.stringify({ error: 'attemptId is required' }), { status: 400 })
+      return new Response(JSON.stringify({ error: 'attemptId is required' }), {
+        status: 400,
+        headers: corsHeaders,
+      })
     }
 
     const supabase = createClient(
@@ -133,23 +155,24 @@ Deno.serve(async (req) => {
       .eq('id', attemptId)
 
     return new Response(JSON.stringify({ totalScore }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    try {
-      const body = await req.clone().json()
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      )
-      await supabase.from('practice_attempts').update({ status: 'failed' }).eq('id', body.attemptId)
-    } catch {
-      // best-effort
+    if (attemptId) {
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        )
+        await supabase.from('practice_attempts').update({ status: 'failed' }).eq('id', attemptId)
+      } catch {
+        // best-effort
+      }
     }
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })

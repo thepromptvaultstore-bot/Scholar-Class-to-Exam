@@ -38,4 +38,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- The note editor records short voice memos via the web
+         MediaRecorder / getUserMedia APIs (src/lib/useRecorder.ts). Without
+         these declared here, Capacitor's WebView permission bridge has
+         nothing to grant and the mic silently never starts on-device, even
+         though it works fine in a desktop browser preview. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 </manifest>

@@ -17,6 +17,17 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+// Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
+// request; without these headers the browser blocks the real request
+// before it's even sent, which surfaces in the app as "Failed to send a
+// request to the Edge Function" (a network-level failure, not a function
+// error — no amount of fixing the function body helps without this).
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 const MODEL = 'claude-haiku-4-5'
 
 const SYSTEM_PROMPT = `You transcribe a photo of a student's notes page (handwritten or printed) into clean text.
@@ -46,10 +57,16 @@ async function blobToBase64(blob: Blob): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
   try {
     const { storagePath } = await req.json()
     if (!storagePath) {
-      return new Response(JSON.stringify({ error: 'storagePath is required' }), { status: 400 })
+      return new Response(JSON.stringify({ error: 'storagePath is required' }), {
+        status: 400,
+        headers: corsHeaders,
+      })
     }
 
     const supabase = createClient(
@@ -95,12 +112,12 @@ Deno.serve(async (req) => {
     const transcript = json.content?.[0]?.text?.trim() ?? ''
 
     return new Response(JSON.stringify({ transcript, engine: 'claude-vision' }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })

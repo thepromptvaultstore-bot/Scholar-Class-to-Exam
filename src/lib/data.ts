@@ -262,6 +262,12 @@ export async function getProfile(userId: string, email: string | null): Promise<
 export async function updateProfile(
   userId: string,
   patch: Partial<Pick<Profile, 'fullName' | 'university' | 'avatarUrl' | 'dailyGoalXp'>>,
+  // `profiles` has no email column (it lives on the auth user), so without
+  // this the mapper defaulted it to null and every save — rename, avatar
+  // upload, daily-goal change — silently wiped the email shown on the
+  // profile page until the next full reload. Optional so existing callers
+  // that don't have it handy don't break; they just keep the old gap.
+  email: string | null = null,
 ): Promise<Profile> {
   const dbPatch: Record<string, string | number | null> = {}
   if (patch.fullName !== undefined) dbPatch.full_name = patch.fullName
@@ -276,7 +282,7 @@ export async function updateProfile(
     .select()
     .single()
   if (error) throw error
-  return profileFromRow(data)
+  return profileFromRow(data, email)
 }
 
 export async function uploadAvatar(userId: string, file: File): Promise<string> {

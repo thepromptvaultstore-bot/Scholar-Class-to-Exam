@@ -76,10 +76,14 @@ export default function ProfilePage() {
     setError(null)
     setNotice(null)
     try {
-      const updated = await updateProfile(user.id, {
-        fullName: fullName.trim() || null,
-        university: university.trim() || null,
-      })
+      const updated = await updateProfile(
+        user.id,
+        {
+          fullName: fullName.trim() || null,
+          university: university.trim() || null,
+        },
+        user.email ?? null,
+      )
       setProfile((prev) => (prev ? { ...prev, ...updated } : updated))
       setNotice('Saved.')
     } catch (err) {
@@ -95,7 +99,7 @@ export default function ProfilePage() {
     setError(null)
     try {
       const avatarUrl = await uploadAvatar(user.id, file)
-      const updated = await updateProfile(user.id, { avatarUrl })
+      const updated = await updateProfile(user.id, { avatarUrl }, user.email ?? null)
       setProfile((prev) => (prev ? { ...prev, ...updated } : updated))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not upload that photo.')
@@ -108,7 +112,7 @@ export default function ProfilePage() {
     if (!user || xp === profile?.dailyGoalXp) return
     setSavingGoal(true)
     try {
-      const updated = await updateProfile(user.id, { dailyGoalXp: xp })
+      const updated = await updateProfile(user.id, { dailyGoalXp: xp }, user.email ?? null)
       setProfile((prev) => (prev ? { ...prev, ...updated } : updated))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update your daily goal.')
@@ -300,6 +304,16 @@ export default function ProfilePage() {
           >
             <LogOut size={15} /> Sign out
           </button>
+
+          <p className="pb-2 text-center text-[11px] text-muted">
+            <Link to="/terms" className="text-indigo-500">
+              Terms
+            </Link>{' '}
+            ·{' '}
+            <Link to="/privacy" className="text-indigo-500">
+              Privacy Policy
+            </Link>
+          </p>
         </>
       )}
     </div>

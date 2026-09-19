@@ -22,6 +22,17 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+// Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
+// request; without these headers the browser blocks the real request
+// before it's even sent, which surfaces in the app as "Failed to send a
+// request to the Edge Function" (a network-level failure, not a function
+// error — no amount of fixing the function body helps without this).
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 const MODEL = 'claude-haiku-4-5' // cheap/fast, same choice IELTSGate made for scale
 const MAX_MATERIAL_FILES = 8
 const MAX_MATERIAL_BYTES = 8 * 1024 * 1024 // 8MB per file, generous for a phone photo/PDF
@@ -45,10 +56,22 @@ Quiz format = objective only (mcq, true_false, fill_blank), 6-10 questions.
 Exam format = topic-based only (short_answer, essay), 3-6 questions that require explaining the material in the student's own words, matching how a real midterm/final would ask it.`
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+  // Captured here (rather than re-reading/cloning `req` in the catch block
+  // below) because a Request body can only be consumed once — by the time
+  // the catch block ran, `req.clone()` was throwing (the original stream
+  // was already read by the `req.json()` below), which silently swallowed
+  // every failure and left the row stuck at status='generating' forever.
+  let practiceSetId: string | undefined
   try {
-    const { practiceSetId } = await req.json()
+    ;({ practiceSetId } = await req.json())
     if (!practiceSetId) {
-      return new Response(JSON.stringify({ error: 'practiceSetId is required' }), { status: 400 })
+      return new Response(JSON.stringify({ error: 'practiceSetId is required' }), {
+        status: 400,
+        headers: corsHeaders,
+      })
     }
 
     const supabase = createClient(
@@ -166,27 +189,28 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ ok: true, count: rows.length }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    try {
-      const body = await req.clone().json()
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      )
-      await supabase
-        .from('practice_sets')
-        .update({ status: 'failed', error: message })
-        .eq('id', body.practiceSetId)
-    } catch {
-      // best-effort — if we can't even mark it failed, the client's own
-      // fetch-error handling still surfaces the problem.
+    if (practiceSetId) {
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        )
+        await supabase
+          .from('practice_sets')
+          .update({ status: 'failed', error: message })
+          .eq('id', practiceSetId)
+      } catch {
+        // best-effort — if we can't even mark it failed, the client's own
+        // fetch-error handling still surfaces the problem.
+      }
     }
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })

@@ -39,7 +39,22 @@ import type { CourseGrade, GradeScaleEntry } from '../types/grades'
 
 type Tab = 'timetable' | 'grades'
 
-const todayISO = () => new Date().toISOString().slice(0, 10)
+// Deliberately local-calendar-day, NOT `.toISOString().slice(0, 10)` (which
+// is UTC): this value is stored as `attended_date` and compared against
+// `todayDow` below, which is local (`now.getDay()`). For anyone east of UTC,
+// using a UTC date here used to go stale mid-local-day — e.g. mark a class
+// attended in the morning (still "yesterday" in UTC), then reopen the app
+// later the same local day once UTC has rolled over: the attendance lookup
+// for the new UTC "today" wouldn't find that row, "Mark attended" would
+// reappear, and clicking it again inserted a second row and double-awarded
+// the XP for the same real-world attendance.
+const todayISO = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 export default function SchedulePage() {
   const { user } = useAuthStore()
