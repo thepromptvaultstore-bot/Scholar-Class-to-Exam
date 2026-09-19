@@ -22,6 +22,17 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+// Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
+// request; without these headers the browser blocks the real request
+// before it's even sent, which surfaces in the app as "Failed to send a
+// request to the Edge Function" (a network-level failure, not a function
+// error — no amount of fixing the function body helps without this).
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 function mondayOfWeekUTC(weeksAgo: number): { start: string; end: string } {
   const now = new Date()
   const day = now.getUTCDay() // 0 = Sunday .. 6 = Saturday
@@ -35,10 +46,16 @@ function mondayOfWeekUTC(weeksAgo: number): { start: string; end: string } {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
   try {
     const { userId, weeksAgo } = await req.json()
     if (!userId) {
-      return new Response(JSON.stringify({ error: 'userId is required' }), { status: 400 })
+      return new Response(JSON.stringify({ error: 'userId is required' }), {
+        status: 400,
+        headers: corsHeaders,
+      })
     }
     const offset = typeof weeksAgo === 'number' && weeksAgo >= 0 ? weeksAgo : 0
 
@@ -95,13 +112,12 @@ Deno.serve(async (req) => {
         self: { weeklyXp: weekly.get(userId) ?? 0, totalXp: totals.get(userId) ?? 0 },
         weekStart,
       }),
-      { headers: { 'Content-Type': 'application/json' } },
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err) {
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
-

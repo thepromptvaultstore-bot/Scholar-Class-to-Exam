@@ -16,11 +16,28 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+// Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
+// request; without these headers the browser blocks the real request
+// before it's even sent, which surfaces in the app as "Failed to send a
+// request to the Edge Function" (a network-level failure, not a function
+// error — no amount of fixing the function body helps without this).
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
   try {
     const { userId, code } = await req.json()
     if (!userId || !code || typeof code !== 'string') {
-      return new Response(JSON.stringify({ error: 'userId and code are required' }), { status: 400 })
+      return new Response(JSON.stringify({ error: 'userId and code are required' }), {
+        status: 400,
+        headers: corsHeaders,
+      })
     }
 
     const supabase = createClient(
@@ -38,10 +55,16 @@ Deno.serve(async (req) => {
     if (lookupError) throw lookupError
 
     if (!friend) {
-      return new Response(JSON.stringify({ error: "No Scholar user has that friend code." }), { status: 404 })
+      return new Response(JSON.stringify({ error: "No Scholar user has that friend code." }), {
+        status: 404,
+        headers: corsHeaders,
+      })
     }
     if (friend.id === userId) {
-      return new Response(JSON.stringify({ error: "That's your own friend code." }), { status: 400 })
+      return new Response(JSON.stringify({ error: "That's your own friend code." }), {
+        status: 400,
+        headers: corsHeaders,
+      })
     }
 
     const { data: existing, error: existingError } = await supabase
@@ -52,7 +75,10 @@ Deno.serve(async (req) => {
       .maybeSingle()
     if (existingError) throw existingError
     if (existing) {
-      return new Response(JSON.stringify({ error: 'You are already friends.' }), { status: 409 })
+      return new Response(JSON.stringify({ error: 'You are already friends.' }), {
+        status: 409,
+        headers: corsHeaders,
+      })
     }
 
     const { error: insertError } = await supabase.from('friendships').insert([
@@ -65,13 +91,12 @@ Deno.serve(async (req) => {
       JSON.stringify({
         friend: { id: friend.id, fullName: friend.full_name, avatarUrl: friend.avatar_url },
       }),
-      { headers: { 'Content-Type': 'application/json' } },
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err) {
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
-
