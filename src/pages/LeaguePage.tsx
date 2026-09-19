@@ -42,9 +42,22 @@ export default function LeaguePage() {
     let cancelled = false
     async function init() {
       if (!user) return
+      // Render as soon as the first board load lands instead of also
+      // waiting on the weekly-rollover check below — that check only
+      // matters once a week (new Monday) and otherwise short-circuits, but
+      // when it DOES run it costs 1-2 extra edge-function round trips, and
+      // blocking the whole page on it is what made League feel stuck on
+      // "Loading…" for several seconds.
+      let p: Profile | null = null
       try {
-        const p = await load()
-        if (cancelled || !p) return
+        p = (await load()) ?? null
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load your league.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+      if (cancelled || !p) return
+      try {
         const newTier = await checkWeeklyLeagueRollover(user.id, p.leagueTier, p.leagueWeekKey)
         if (!cancelled && newTier) {
           setNotice(
@@ -52,10 +65,9 @@ export default function LeaguePage() {
           )
           await load()
         }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load your league.')
-      } finally {
-        if (!cancelled) setLoading(false)
+      } catch {
+        // Best-effort background check — the board the user already sees is
+        // still correct, so a failure here shouldn't surface as a page error.
       }
     }
     init()
@@ -125,7 +137,25 @@ export default function LeaguePage() {
       {notice && <p className="rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-500">{notice}</p>}
 
       {loading ? (
-        <p className="text-xs text-muted">Loading…</p>
+        <div className="flex flex-col gap-5">
+          <div className="skeleton h-32 rounded-2xl" />
+          <div className="glass-card flex flex-col gap-3 rounded-2xl p-4">
+            <div className="skeleton h-4 w-32 rounded-md" />
+            <div className="skeleton h-11 rounded-xl" />
+            <div className="skeleton h-3 w-48 rounded-md" />
+            <div className="skeleton h-11 rounded-xl" />
+          </div>
+          <div className="glass-card flex flex-col gap-2 rounded-2xl p-4">
+            <div className="skeleton mb-1 h-4 w-24 rounded-md" />
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 p-2.5">
+                <span className="skeleton h-8 w-8 shrink-0 rounded-full" />
+                <span className="skeleton h-4 flex-1 rounded-md" />
+                <span className="skeleton h-4 w-12 shrink-0 rounded-md" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : (
         <>
           <div
@@ -226,4 +256,3 @@ export default function LeaguePage() {
     </div>
   )
 }
-
