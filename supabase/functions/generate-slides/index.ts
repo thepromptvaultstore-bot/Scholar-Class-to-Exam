@@ -14,6 +14,7 @@
 // function only ever touches its own rows via the service-role key)
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { checkAndConsume, limitMessage } from '../_shared/entitlements.ts'
 
 // Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
 // request; without these headers the browser blocks the real request
@@ -74,6 +75,16 @@ Deno.serve(async (req) => {
       .eq('id', presentationId)
       .single()
     if (presError) throw presError
+
+    const entitlement = await checkAndConsume(supabase, pres.user_id, 'slides')
+    if (!entitlement.allowed) {
+      const message = limitMessage('slides')
+      await supabase.from('presentations').update({ status: 'failed', error: message }).eq('id', presentationId)
+      return new Response(JSON.stringify({ error: message, code: 'limit_reached' }), {
+        status: 402,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data: notes, error: notesError } = await supabase
       .from('notes')

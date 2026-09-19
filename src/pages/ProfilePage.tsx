@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, ChevronLeft, Flame, Lock, LogOut, Sparkles, Trophy } from 'lucide-react'
+import { Camera, ChevronLeft, Crown, Flame, Lock, LogOut, Sparkles, Trophy } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { getProfile, listNotes, listSubjects, updateProfile, uploadAvatar } from '../lib/data'
 import { getLevelInfo, getStreakDays, listEarnedBadges } from '../lib/gamification'
 import { BADGE_CATALOG, DAILY_GOAL_PRESETS } from '../types/gamification'
+import { FEATURE_LABEL, FREE_LIMITS, isPro, remaining, type MeteredFeature } from '../lib/entitlements'
 import type { Profile } from '../types/domain'
 import type { EarnedBadge, LevelInfo } from '../types/gamification'
 
@@ -218,6 +219,41 @@ export default function ProfilePage() {
             <span className="text-xs font-medium text-indigo-500">Open →</span>
           </Link>
 
+          {profile && (
+            <div className="glass-card flex flex-col gap-3 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
+                  <Crown size={15} className={isPro(profile) ? 'text-amber-500' : 'text-muted'} />
+                  {isPro(profile) ? 'Scholar Pro' : 'Free plan'}
+                </h2>
+                {!isPro(profile) && (
+                  <Link to="/upgrade" className="text-xs font-semibold text-indigo-500">
+                    Upgrade →
+                  </Link>
+                )}
+              </div>
+              {isPro(profile) ? (
+                <p className="text-xs text-muted">
+                  Unlimited AI generations
+                  {profile.subscriptionExpiresAt
+                    ? ` · renews ${new Date(profile.subscriptionExpiresAt).toLocaleDateString()}`
+                    : ''}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {(Object.keys(FEATURE_LABEL) as MeteredFeature[]).map((key) => (
+                    <div key={key} className="flex items-center justify-between text-xs">
+                      <span className="text-muted">{FEATURE_LABEL[key]}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {remaining(profile, key)} / {FREE_LIMITS[key]} left this month
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="glass-card flex flex-col gap-3 rounded-2xl p-4">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Daily goal</h2>
             <div className="grid grid-cols-4 gap-2">
@@ -319,4 +355,3 @@ export default function ProfilePage() {
     </div>
   )
 }
-

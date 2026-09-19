@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { awardPracticeGenerated, awardPracticeGraded } from './gamification'
+import { isLimitReachedError, LimitReachedError } from './entitlements'
 import type {
   PracticeAnswer,
   PracticeAttempt,
@@ -91,7 +92,10 @@ export async function createPracticeSet(
   const { error: fnError } = await supabase.functions.invoke('generate-practice', {
     body: { practiceSetId: set.id },
   })
-  if (fnError) throw fnError
+  if (fnError) {
+    if (await isLimitReachedError(fnError)) throw new LimitReachedError()
+    throw fnError
+  }
 
   awardPracticeGenerated(userId, subjectId)
   return set

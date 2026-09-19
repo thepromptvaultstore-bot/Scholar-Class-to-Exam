@@ -11,6 +11,14 @@ export const profileFromRow = (r: ProfileRow, email: string | null = null): Prof
   dailyGoalXp: r.daily_goal_xp,
   leagueTier: r.league_tier,
   leagueWeekKey: r.league_week_key,
+  subscriptionTier: r.subscription_tier,
+  subscriptionExpiresAt: r.subscription_expires_at,
+  subscriptionProductId: r.subscription_product_id,
+  usageMonthKey: r.usage_month_key,
+  usagePracticeCount: r.usage_practice_count,
+  usageSlidesCount: r.usage_slides_count,
+  usageScanCount: r.usage_scan_count,
+  usageAudioCount: r.usage_audio_count,
   email,
   createdAt: r.created_at,
 })
@@ -54,4 +62,3 @@ export const materialFromRow = (r: NoteMaterialRow): NoteMaterial => ({
   fileName: r.file_name,
   fileType: r.file_type,
 })
-

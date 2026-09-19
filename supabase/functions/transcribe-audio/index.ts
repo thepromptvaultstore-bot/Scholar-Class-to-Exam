@@ -16,6 +16,7 @@
 // Response:     { transcript: string, engine: string }
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { checkAndConsume, limitMessage } from '../_shared/entitlements.ts'
 
 // Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
 // request; without these headers the browser blocks the real request
@@ -143,6 +144,18 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
+
+    // storagePath is always written as `${userId}/...` by uploadLectureAudio()
+    // in src/lib/data.ts, the same convention used for every other bucket
+    // path in this app.
+    const ownerId = storagePath.split('/')[0]
+    const entitlement = await checkAndConsume(supabase, ownerId, 'audio')
+    if (!entitlement.allowed) {
+      return new Response(JSON.stringify({ error: limitMessage('audio'), code: 'limit_reached' }), {
+        status: 402,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data: file, error: downloadError } = await supabase.storage
       .from('lecture-audio')

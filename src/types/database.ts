@@ -4,6 +4,7 @@
 
 export type CaptureMode = 'manual' | 'voice' | 'photo'
 export type TranscriptionStatus = 'none' | 'pending' | 'processing' | 'done' | 'failed'
+export type SubscriptionTier = 'free' | 'pro'
 
 export interface ProfileRow {
   id: string
@@ -15,6 +16,15 @@ export interface ProfileRow {
   daily_goal_xp: number
   league_tier: LeagueTier
   league_week_key: string | null
+  subscription_tier: SubscriptionTier
+  subscription_expires_at: string | null
+  subscription_product_id: string | null
+  subscription_purchase_token: string | null
+  usage_month_key: string | null
+  usage_practice_count: number
+  usage_slides_count: number
+  usage_scan_count: number
+  usage_audio_count: number
   created_at: string
 }
 
@@ -118,4 +128,3 @@ export interface Database {
     }
   }
 }
-

@@ -21,6 +21,7 @@
 // RLS covers the insert and this function only ever touches its own rows)
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { checkAndConsume, limitMessage } from '../_shared/entitlements.ts'
 
 // Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
 // request; without these headers the browser blocks the real request
@@ -85,6 +86,16 @@ Deno.serve(async (req) => {
       .eq('id', practiceSetId)
       .single()
     if (setError) throw setError
+
+    const entitlement = await checkAndConsume(supabase, set.user_id, 'practice')
+    if (!entitlement.allowed) {
+      const message = limitMessage('practice')
+      await supabase.from('practice_sets').update({ status: 'failed', error: message }).eq('id', practiceSetId)
+      return new Response(JSON.stringify({ error: message, code: 'limit_reached' }), {
+        status: 402,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data: notes, error: notesError } = await supabase
       .from('notes')

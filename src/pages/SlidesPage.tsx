@@ -4,6 +4,8 @@ import { Loader2, Presentation, Sparkles } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { listSubjects, listNotes } from '../lib/data'
 import { createPresentation, listPresentations } from '../lib/slides'
+import { LimitReachedError } from '../lib/entitlements'
+import { ErrorBanner } from '../components/ErrorBanner'
 import type { Subject, Note } from '../types/domain'
 import type { Presentation as PresentationDoc } from '../types/slides'
 
@@ -20,6 +22,7 @@ export default function SlidesPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [limitReached, setLimitReached] = useState(false)
 
   useEffect(() => {
     listSubjects()
@@ -50,10 +53,12 @@ export default function SlidesPage() {
     if (!user || !subjectId || selectedNoteIds.length === 0 || !topic.trim()) return
     setGenerating(true)
     setError(null)
+    setLimitReached(false)
     try {
       const deck = await createPresentation(user.id, subjectId, selectedNoteIds, topic.trim())
       navigate(`/slides/${deck.id}`)
     } catch (err) {
+      setLimitReached(err instanceof LimitReachedError)
       setError(err instanceof Error ? err.message : 'Could not generate a presentation.')
     } finally {
       setGenerating(false)
@@ -77,7 +82,7 @@ export default function SlidesPage() {
       <p className="-mt-3 text-xs text-muted">
         Turn a topic and your notes into a slide deck plus a matching presentation script.
       </p>
-      {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
+      {error && <ErrorBanner message={error} showUpgrade={limitReached} />}
 
       <div>
         <label className="mb-1 block text-xs font-medium text-muted">Course</label>

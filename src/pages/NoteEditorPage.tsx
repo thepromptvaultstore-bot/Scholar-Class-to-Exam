@@ -16,6 +16,8 @@ import {
 import { requestImageTranscription, requestTranscription } from '../lib/transcription'
 import { useRecorder } from '../lib/useRecorder'
 import { supabase } from '../lib/supabaseClient'
+import { LimitReachedError } from '../lib/entitlements'
+import { ErrorBanner } from '../components/ErrorBanner'
 import type { Note, NoteMaterial } from '../types/domain'
 
 function formatElapsed(ms: number) {
@@ -41,6 +43,7 @@ export default function NoteEditorPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [limitReached, setLimitReached] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null)
@@ -127,6 +130,7 @@ export default function NoteEditorPage() {
       if (!recorder.blob || !note || !user) return
       setTranscribing(true)
       setError(null)
+      setLimitReached(false)
       try {
         const path = await uploadLectureAudio(user.id, note.id, recorder.blob)
         await updateNote(note.id, { audioPath: path })
@@ -140,6 +144,7 @@ export default function NoteEditorPage() {
         })
         setNote((prev) => (prev ? { ...prev, transcriptionStatus: 'done' } : prev))
       } catch (err) {
+        setLimitReached(err instanceof LimitReachedError)
         setError(err instanceof Error ? err.message : 'Transcription failed.')
         if (note) await updateNote(note.id, { transcriptionStatus: 'failed' })
       } finally {
@@ -244,6 +249,7 @@ export default function NoteEditorPage() {
   const handleScanPhotos = async (files: FileList) => {
     if (!user || !note || files.length === 0) return
     setError(null)
+    setLimitReached(false)
     setScanning(true)
     setScanProgress({ done: 0, total: files.length })
     let merged = content
@@ -258,6 +264,7 @@ export default function NoteEditorPage() {
             setContent(merged)
           }
         } catch (err) {
+          setLimitReached(err instanceof LimitReachedError)
           setError(err instanceof Error ? err.message : 'Could not scan one of the photos.')
         } finally {
           setScanProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
@@ -338,7 +345,7 @@ export default function NoteEditorPage() {
         {note.sessionDate} {saving && '· saving…'}
       </p>
 
-      {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
+      {error && <ErrorBanner message={error} showUpgrade={limitReached} />}
 
       {showShare && (
         <div className="glass-card flex flex-col gap-2 rounded-2xl p-3">

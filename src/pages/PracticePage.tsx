@@ -4,6 +4,8 @@ import { GraduationCap, Loader2, Sparkles } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { listSubjects, listNotes } from '../lib/data'
 import { createPracticeSet, listPracticeSets } from '../lib/practice'
+import { LimitReachedError } from '../lib/entitlements'
+import { ErrorBanner } from '../components/ErrorBanner'
 import type { Subject, Note } from '../types/domain'
 import type { PracticeFormat, PracticeScope, PracticeSet } from '../types/practice'
 
@@ -18,6 +20,7 @@ export default function PracticePage() {
   const [format, setFormat] = useState<PracticeFormat>('quiz')
   const [sets, setSets] = useState<PracticeSet[]>([])
   const [loading, setLoading] = useState(true)
+  const [limitReached, setLimitReached] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -53,6 +56,7 @@ export default function PracticePage() {
     if (!user || !subjectId || selectedNoteIds.length === 0) return
     setGenerating(true)
     setError(null)
+    setLimitReached(false)
     try {
       const set = await createPracticeSet(
         user.id,
@@ -63,6 +67,7 @@ export default function PracticePage() {
       )
       navigate(`/practice/${set.id}`)
     } catch (err) {
+      setLimitReached(err instanceof LimitReachedError)
       setError(err instanceof Error ? err.message : 'Could not generate a practice set.')
     } finally {
       setGenerating(false)
@@ -83,7 +88,7 @@ export default function PracticePage() {
   return (
     <div className="flex flex-col gap-5 px-5 pt-6 pb-10">
       <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Practice & Exam Prep</h1>
-      {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
+      {error && <ErrorBanner message={error} showUpgrade={limitReached} />}
 
       <div>
         <label className="mb-1 block text-xs font-medium text-muted">Course</label>

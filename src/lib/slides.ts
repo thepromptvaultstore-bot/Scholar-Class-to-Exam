@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { isLimitReachedError, LimitReachedError } from './entitlements'
 import type { Presentation, PresentationStatus, Slide } from '../types/slides'
 
 const presentationFromRow = (r: Record<string, unknown>): Presentation => ({
@@ -52,7 +53,10 @@ export async function createPresentation(
   const { error: fnError } = await supabase.functions.invoke('generate-slides', {
     body: { presentationId: presentation.id },
   })
-  if (fnError) throw fnError
+  if (fnError) {
+    if (await isLimitReachedError(fnError)) throw new LimitReachedError()
+    throw fnError
+  }
 
   return presentation
 }

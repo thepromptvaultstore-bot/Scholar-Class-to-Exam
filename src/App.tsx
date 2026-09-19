@@ -14,6 +14,7 @@ import SlideDeckPage from './pages/SlideDeckPage'
 import SchedulePage from './pages/SchedulePage'
 import ProfilePage from './pages/ProfilePage'
 import LeaguePage from './pages/LeaguePage'
+import UpgradePage from './pages/UpgradePage'
 import SharedPage from './pages/SharedPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsPage from './pages/TermsPage'
@@ -48,6 +49,7 @@ function App() {
                   <Route path="/schedule" element={<SchedulePage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/league" element={<LeaguePage />} />
+                  <Route path="/upgrade" element={<UpgradePage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AppShell>
@@ -60,4 +62,3 @@ function App() {
 }
 
 export default App
-
