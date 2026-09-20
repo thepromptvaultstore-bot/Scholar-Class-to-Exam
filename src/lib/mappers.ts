@@ -22,6 +22,7 @@ export const profileFromRow = (r: ProfileRow, email: string | null = null): Prof
   priorGpa: r.prior_gpa === null ? null : Number(r.prior_gpa),
   priorCreditHours: Number(r.prior_credit_hours),
   gradingSystem: r.grading_system,
+  totalCreditsRequired: r.total_credits_required === null ? null : Number(r.total_credits_required),
   email,
   createdAt: r.created_at,
 })

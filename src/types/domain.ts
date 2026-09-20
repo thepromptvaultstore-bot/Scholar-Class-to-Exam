@@ -25,6 +25,9 @@ export interface Profile {
   priorGpa: number | null
   priorCreditHours: number
   gradingSystem: GradingSystem
+  // Total credits the degree requires (e.g. 120) — lets the Grades page show
+  // progress toward graduation the way most university portals already do.
+  totalCreditsRequired: number | null
   email: string | null
   createdAt: string
 }

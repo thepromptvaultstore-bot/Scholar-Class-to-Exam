@@ -264,7 +264,14 @@ export async function updateProfile(
   patch: Partial<
     Pick<
       Profile,
-      'fullName' | 'university' | 'avatarUrl' | 'dailyGoalXp' | 'priorGpa' | 'priorCreditHours' | 'gradingSystem'
+      | 'fullName'
+      | 'university'
+      | 'avatarUrl'
+      | 'dailyGoalXp'
+      | 'priorGpa'
+      | 'priorCreditHours'
+      | 'gradingSystem'
+      | 'totalCreditsRequired'
     >
   >,
   // `profiles` has no email column (it lives on the auth user), so without
@@ -282,6 +289,7 @@ export async function updateProfile(
   if (patch.priorGpa !== undefined) dbPatch.prior_gpa = patch.priorGpa
   if (patch.priorCreditHours !== undefined) dbPatch.prior_credit_hours = patch.priorCreditHours
   if (patch.gradingSystem !== undefined) dbPatch.grading_system = patch.gradingSystem
+  if (patch.totalCreditsRequired !== undefined) dbPatch.total_credits_required = patch.totalCreditsRequired
 
   const { data, error } = await supabase
     .from('profiles')

@@ -29,6 +29,7 @@ export interface ProfileRow {
   prior_gpa: number | null
   prior_credit_hours: number
   grading_system: GradingSystem
+  total_credits_required: number | null
   created_at: string
 }
 

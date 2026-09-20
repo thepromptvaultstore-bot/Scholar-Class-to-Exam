@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
+  Award,
   BookOpen,
   GraduationCap,
   Home,
@@ -18,6 +19,7 @@ const tabs = [
   { to: '/practice', label: 'Practice', icon: GraduationCap },
   { to: '/slides', label: 'Slides', icon: Presentation },
   { to: '/schedule', label: 'Schedule', icon: CalendarClock },
+  { to: '/grades', label: 'Grades', icon: Award },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
