@@ -28,6 +28,10 @@ export interface Profile {
   // Total credits the degree requires (e.g. 120) — lets the Grades page show
   // progress toward graduation the way most university portals already do.
   totalCreditsRequired: number | null
+  // Which weekdays count toward the streak — see database.ts. Days outside
+  // this set don't need activity to keep the streak alive, and freezes
+  // aren't spent covering them.
+  streakActiveDaysMask: number
   email: string | null
   createdAt: string
 }

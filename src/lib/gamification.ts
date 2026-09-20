@@ -71,6 +71,30 @@ function startOfLocalDay(d: Date = new Date()): Date {
   return start
 }
 
+// Bitmask of weekdays that count toward the streak — bit 0 = Sunday .. bit
+// 6 = Saturday (Date#getDay() order). Default = every day, which is
+// exactly the old always-daily behavior, so passing nothing here changes
+// nothing for anyone who hasn't set a preference.
+export const ALL_DAYS_MASK = 0b1111111
+
+function isActiveDow(mask: number, date: Date): boolean {
+  return (mask & (1 << date.getDay())) !== 0
+}
+
+export function isTodayActiveDay(mask: number): boolean {
+  return isActiveDow(mask, new Date())
+}
+
+// Walks backward from `from` (inclusive) to the nearest day whose weekday
+// is in `mask` — i.e. skips over days the student doesn't count toward
+// their streak (typically days with no class). Bounded so a near-empty
+// mask (e.g. a single active weekday) can't loop unreasonably far.
+function mostRecentActiveDay(mask: number, from: Date): Date {
+  const d = new Date(from)
+  for (let i = 0; i < 3650 && !isActiveDow(mask, d); i++) d.setDate(d.getDate() - 1)
+  return d
+}
+
 // Sum of XP logged today (local calendar day) — what the daily-goal ring on
 // Home compares against the user's chosen goal.
 export async function getTodayXp(): Promise<number> {
@@ -82,10 +106,15 @@ export async function getTodayXp(): Promise<number> {
   return (data ?? []).reduce((sum: number, r: { amount: number }) => sum + (r.amount ?? 0), 0)
 }
 
-// Consecutive days (ending today or yesterday) with at least one XP-earning
-// activity, OR a date a streak freeze covered — a "study streak" like the
-// plan describes, with Duolingo-style freeze protection folded in.
-export async function getStreakDays(): Promise<number> {
+// Consecutive ACTIVE days (ending today or the most recent active day)
+// with at least one XP-earning activity, OR a date a streak freeze
+// covered — a "study streak" like the plan describes, with Duolingo-style
+// freeze protection folded in. Days outside `activeDaysMask` (see
+// ALL_DAYS_MASK) are skipped entirely: they don't need activity to keep
+// the streak going, and they don't add to the count either, so a student
+// with class 4 days a week has a streak measured in study days, not
+// calendar days.
+export async function getStreakDays(activeDaysMask: number = ALL_DAYS_MASK): Promise<number> {
   const [eventsRes, freezeRes] = await Promise.all([
     supabase.from('xp_events').select('created_at').order('created_at', { ascending: false }).limit(500),
     supabase.from('streak_freeze_log').select('covered_date').order('covered_date', { ascending: false }).limit(50),
@@ -100,30 +129,45 @@ export async function getStreakDays(): Promise<number> {
   if (dates.size === 0) return 0
 
   const today = new Date()
-  let cursorDate = today
-  if (!dates.has(localDateISO(cursorDate))) {
-    // Streak can still be "alive" if the last activity was yesterday.
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    cursorDate = yesterday
-    if (!dates.has(localDateISO(cursorDate))) return 0
+  let anchor = mostRecentActiveDay(activeDaysMask, today)
+  if (!dates.has(localDateISO(anchor))) {
+    if (localDateISO(anchor) === localDateISO(today)) {
+      // Today is an active day with nothing logged yet — still "alive" via
+      // grace (the day isn't over), so check the active day before it.
+      const before = new Date(anchor)
+      before.setDate(before.getDate() - 1)
+      anchor = mostRecentActiveDay(activeDaysMask, before)
+      if (!dates.has(localDateISO(anchor))) return 0
+    } else {
+      return 0
+    }
   }
 
   let streak = 0
-  cursorDate = new Date(cursorDate)
-  while (dates.has(localDateISO(cursorDate))) {
-    streak += 1
-    cursorDate.setDate(cursorDate.getDate() - 1)
+  let cursor = anchor
+  for (let i = 0; i < 3650; i++) {
+    if (isActiveDow(activeDaysMask, cursor)) {
+      if (!dates.has(localDateISO(cursor))) break
+      streak += 1
+    }
+    const prev = new Date(cursor)
+    prev.setDate(prev.getDate() - 1)
+    cursor = prev
   }
   return streak
 }
 
-// Best-effort, called once per app load. If exactly one day was missed
-// (activity two days ago, nothing yesterday) and a freeze is available and
-// hasn't already been spent on that date, auto-covers it so the streak
-// doesn't reset — same as Duolingo's streak freeze, minus the shop: freezes
-// are earned back only via streak-milestone badges (see checkAndAwardBadges).
-export async function applyStreakFreezeIfNeeded(userId: string): Promise<void> {
+// Best-effort, called once per app load. If exactly one ACTIVE day was
+// missed (activity on the active day before it, nothing on the most recent
+// active day before today) and a freeze is available and hasn't already
+// been spent on that date, auto-covers it so the streak doesn't reset —
+// same as Duolingo's streak freeze, minus the shop: freezes are earned back
+// only via streak-milestone badges (see checkAndAwardBadges). Days outside
+// `activeDaysMask` are never "missed" — nothing is checked or spent on them.
+export async function applyStreakFreezeIfNeeded(
+  userId: string,
+  activeDaysMask: number = ALL_DAYS_MASK,
+): Promise<void> {
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -143,16 +187,20 @@ export async function applyStreakFreezeIfNeeded(userId: string): Promise<void> {
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
-    const twoDaysAgo = new Date(today)
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+    const lastActive = mostRecentActiveDay(activeDaysMask, yesterday)
+    if (dates.has(localDateISO(lastActive))) return // nothing missed
 
-    const missedYesterday = !dates.has(localDateISO(yesterday))
-    const activeTwoDaysAgo = dates.has(localDateISO(twoDaysAgo))
-    if (!missedYesterday || !activeTwoDaysAgo) return
+    const beforeLastActive = new Date(lastActive)
+    beforeLastActive.setDate(beforeLastActive.getDate() - 1)
+    const priorActive = mostRecentActiveDay(activeDaysMask, beforeLastActive)
+    // Only auto-cover a single missed active day — if the active day before
+    // that one is also empty, more than one was missed and a freeze
+    // wouldn't save the streak anyway, so don't spend it chasing a loss.
+    if (!dates.has(localDateISO(priorActive))) return
 
     const { error: insertError } = await supabase
       .from('streak_freeze_log')
-      .insert({ user_id: userId, covered_date: localDateISO(yesterday) })
+      .insert({ user_id: userId, covered_date: localDateISO(lastActive) })
     if (insertError) {
       // Unique-constraint hit means this date was already covered — fine.
       return

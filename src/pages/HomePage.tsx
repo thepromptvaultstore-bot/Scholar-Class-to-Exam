@@ -4,6 +4,7 @@ import { BookOpen, Flame, Plus, Shield, Sparkles, Trophy } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { getProfile, listSemesters, listSubjects, listNotes } from '../lib/data'
 import {
+  ALL_DAYS_MASK,
   applyStreakFreezeIfNeeded,
   checkAndAwardBadges,
   checkWeeklyLeagueRollover,
@@ -11,6 +12,7 @@ import {
   getLevelInfo,
   getStreakDays,
   getTodayXp,
+  isTodayActiveDay,
   spendStreakFreezeToday,
 } from '../lib/gamification'
 import { LEAGUE_TIERS, type BadgeDef } from '../types/gamification'
@@ -37,30 +39,31 @@ export default function HomePage() {
     let cancelled = false
     async function load() {
       try {
-        const [s, subj, notes, level, streakDays, xpToday] = await Promise.all([
+        const profilePromise = user ? getProfile(user.id, user.email ?? null) : Promise.resolve(null)
+        const [s, subj, notes, level, xpToday, p] = await Promise.all([
           listSemesters(),
           listSubjects(),
           listNotes(),
           getLevelInfo(),
-          getStreakDays(),
           getTodayXp(),
+          profilePromise,
         ])
         if (cancelled) return
         setSemesters(s)
         setSubjects(subj)
         setRecentNotes(notes.slice(0, 3))
         setLevelInfo(level)
-        setStreak(streakDays)
         setTodayXp(xpToday)
+        if (p) setProfile(p)
+        // Which weekdays count toward the streak — a day outside this mask
+        // (e.g. a day with no class) needs no activity to keep it alive.
+        const mask = p?.streakActiveDaysMask ?? ALL_DAYS_MASK
+        const streakDays = await getStreakDays(mask)
+        if (!cancelled) setStreak(streakDays)
         if (user) {
-          getProfile(user.id, user.email ?? null)
-            .then((p) => {
-              if (!cancelled) setProfile(p)
-            })
-            .catch(() => {})
           // Best-effort gamification upkeep — never blocks the page.
-          applyStreakFreezeIfNeeded(user.id).then(() => {
-            if (!cancelled) getStreakDays().then((d) => !cancelled && setStreak(d))
+          applyStreakFreezeIfNeeded(user.id, mask).then(() => {
+            if (!cancelled) getStreakDays(mask).then((d) => !cancelled && setStreak(d))
           })
           checkAndAwardBadges(user.id).then((badges) => {
             if (!cancelled && badges.length > 0) setNewBadges(badges)
@@ -100,11 +103,18 @@ export default function HomePage() {
   const tierInfo = LEAGUE_TIERS.find((t) => t.tier === (profile?.leagueTier ?? 'bronze'))!
 
   // Offer a manual save only when there's something to protect (an existing
-  // streak), nothing has kept today alive yet, and a freeze is actually
-  // available to spend — covers days with no notes/practice to log, without
-  // requiring the user to wait for an already-missed day to be auto-covered.
+  // streak), today actually counts toward it (a day with no class, marked
+  // inactive in Profile settings, doesn't need saving), nothing has kept
+  // today alive yet, and a freeze is actually available to spend — covers
+  // days with no notes/practice to log, without requiring the user to wait
+  // for an already-missed day to be auto-covered.
   const canSaveStreakToday =
-    !loading && streak > 0 && todayXp === 0 && !streakSaved && (profile?.streakFreezeCount ?? 0) > 0
+    !loading &&
+    streak > 0 &&
+    todayXp === 0 &&
+    !streakSaved &&
+    (profile?.streakFreezeCount ?? 0) > 0 &&
+    isTodayActiveDay(profile?.streakActiveDaysMask ?? ALL_DAYS_MASK)
 
   const handleSaveStreak = async () => {
     if (!user || savingStreak) return

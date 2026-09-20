@@ -272,6 +272,7 @@ export async function updateProfile(
       | 'priorCreditHours'
       | 'gradingSystem'
       | 'totalCreditsRequired'
+      | 'streakActiveDaysMask'
     >
   >,
   // `profiles` has no email column (it lives on the auth user), so without
@@ -290,6 +291,7 @@ export async function updateProfile(
   if (patch.priorCreditHours !== undefined) dbPatch.prior_credit_hours = patch.priorCreditHours
   if (patch.gradingSystem !== undefined) dbPatch.grading_system = patch.gradingSystem
   if (patch.totalCreditsRequired !== undefined) dbPatch.total_credits_required = patch.totalCreditsRequired
+  if (patch.streakActiveDaysMask !== undefined) dbPatch.streak_active_days_mask = patch.streakActiveDaysMask
 
   const { data, error } = await supabase
     .from('profiles')

@@ -31,6 +31,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [savingGoal, setSavingGoal] = useState(false)
+  const [savingDays, setSavingDays] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -119,6 +120,28 @@ export default function ProfilePage() {
       setError(err instanceof Error ? err.message : 'Could not update your daily goal.')
     } finally {
       setSavingGoal(false)
+    }
+  }
+
+  // Which weekdays count toward the streak — a day left unchecked here
+  // (typically a day with no class) doesn't need activity to keep the
+  // streak alive, and won't cost a freeze either. Bit 0 = Sunday, matching
+  // Date#getDay(), so a real class schedule (Sun/Tue/Wed/Thu, say) maps
+  // straight onto the toggles below.
+  const handleToggleStudyDay = async (dayIndex: number) => {
+    if (!user || !profile) return
+    const bit = 1 << dayIndex
+    const isOn = (profile.streakActiveDaysMask & bit) !== 0
+    const next = isOn ? profile.streakActiveDaysMask & ~bit : profile.streakActiveDaysMask | bit
+    if (next === 0) return // at least one active day is required
+    setSavingDays(true)
+    try {
+      const updated = await updateProfile(user.id, { streakActiveDaysMask: next }, user.email ?? null)
+      setProfile((prev) => (prev ? { ...prev, ...updated } : updated))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update your study days.')
+    } finally {
+      setSavingDays(false)
     }
   }
 
@@ -272,6 +295,34 @@ export default function ProfilePage() {
                   >
                     <span className="text-xs font-semibold">{preset.label}</span>
                     <span className="text-[10px]">{preset.xp} XP</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="glass-card flex flex-col gap-3 rounded-2xl p-4">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Study days</h2>
+            <p className="text-xs text-muted">
+              Only these days need activity to keep your streak going — handy if you don't have class
+              (or don't study) every day. Freezes won't be spent covering an unchecked day either.
+            </p>
+            <div className="grid grid-cols-7 gap-1.5">
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, i) => {
+                const active = ((profile?.streakActiveDaysMask ?? 127) & (1 << i)) !== 0
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleToggleStudyDay(i)}
+                    disabled={savingDays}
+                    title={['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i]}
+                    className={`rounded-xl border py-2 text-center text-xs font-semibold transition-colors ${
+                      active
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                        : 'border-black/10 text-muted dark:border-white/15'
+                    }`}
+                  >
+                    {label}
                   </button>
                 )
               })}

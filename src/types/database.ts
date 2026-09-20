@@ -30,6 +30,9 @@ export interface ProfileRow {
   prior_credit_hours: number
   grading_system: GradingSystem
   total_credits_required: number | null
+  // Bitmask, bit 0 = Sunday .. bit 6 = Saturday (matches Date#getDay()) —
+  // which weekdays count toward the streak. Default 127 = every day.
+  streak_active_days_mask: number
   created_at: string
 }
 
