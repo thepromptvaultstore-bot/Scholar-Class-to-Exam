@@ -204,35 +204,37 @@ function AllNotesTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search notes by title or content…"
-            className="input-field pl-9"
-          />
+      <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="relative min-w-0">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search notes…"
+              className="input-field w-full pl-9"
+            />
+          </div>
+          <select
+            value={semesterFilter}
+            onChange={(e) => {
+              setSemesterFilter(e.target.value)
+              setSubjectFilter('')
+            }}
+            className="input-field min-w-0"
+          >
+            <option value="">All semesters</option>
+            {semesters.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          value={semesterFilter}
-          onChange={(e) => {
-            setSemesterFilter(e.target.value)
-            setSubjectFilter('')
-          }}
-          className="input-field shrink-0 sm:w-40"
-        >
-          <option value="">All semesters</option>
-          {semesters.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
         <select
           value={subjectFilter}
           onChange={(e) => setSubjectFilter(e.target.value)}
-          className="input-field shrink-0 sm:w-40"
+          className="input-field"
         >
           <option value="">All courses</option>
           {subjectsInFilteredSemester.map((s) => (
