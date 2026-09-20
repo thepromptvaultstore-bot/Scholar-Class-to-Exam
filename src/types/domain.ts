@@ -1,6 +1,6 @@
 // App-facing shapes, kept separate from the raw DB rows so the UI never has
 // to think in snake_case.
-import type { CaptureMode, LeagueTier, SubscriptionTier, TranscriptionStatus } from './database'
+import type { CaptureMode, GradingSystem, LeagueTier, SubscriptionTier, TranscriptionStatus } from './database'
 
 export interface Profile {
   id: string
@@ -20,6 +20,11 @@ export interface Profile {
   usageSlidesCount: number
   usageScanCount: number
   usageAudioCount: number
+  // A CGPA the student already had before tracking courses in this app —
+  // folded into computeGpa's weighted average as a starting balance.
+  priorGpa: number | null
+  priorCreditHours: number
+  gradingSystem: GradingSystem
   email: string | null
   createdAt: string
 }

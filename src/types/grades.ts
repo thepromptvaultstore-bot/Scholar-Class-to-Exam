@@ -25,3 +25,20 @@ export const DEFAULT_GRADE_SCALE: Omit<GradeScaleEntry, 'id'>[] = [
   { letter: 'D', gpa: 1.0, minPercent: 60 },
   { letter: 'F', gpa: 0.0, minPercent: 0 },
 ]
+
+// A starter set for "yearly" (aggregate-marks) programs — the ones that
+// grade a whole year on total percentage rather than a per-course GPA
+// point. These bands are a common Commonwealth-style shape (used, with
+// variations, across South Asia and beyond) meant purely as an editable
+// starting point — every field here is just another grade_scale_entries
+// row, so a student can rename or re-band these to match their exact
+// university's rules. `gpa` is unused in yearly mode (percent is the
+// number that matters) but kept at a sane 0-4 spread so the row still
+// makes sense if someone switches back to semester mode.
+export const DEFAULT_YEARLY_SCALE: Omit<GradeScaleEntry, 'id'>[] = [
+  { letter: 'Distinction', gpa: 4.0, minPercent: 80 },
+  { letter: 'First Class', gpa: 3.5, minPercent: 60 },
+  { letter: 'Second Class', gpa: 2.5, minPercent: 45 },
+  { letter: 'Third Class', gpa: 1.5, minPercent: 40 },
+  { letter: 'Fail', gpa: 0.0, minPercent: 0 },
+]

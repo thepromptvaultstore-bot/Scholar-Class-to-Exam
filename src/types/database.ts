@@ -5,6 +5,7 @@
 export type CaptureMode = 'manual' | 'voice' | 'photo'
 export type TranscriptionStatus = 'none' | 'pending' | 'processing' | 'done' | 'failed'
 export type SubscriptionTier = 'free' | 'pro'
+export type GradingSystem = 'semester' | 'yearly'
 
 export interface ProfileRow {
   id: string
@@ -25,6 +26,9 @@ export interface ProfileRow {
   usage_slides_count: number
   usage_scan_count: number
   usage_audio_count: number
+  prior_gpa: number | null
+  prior_credit_hours: number
+  grading_system: GradingSystem
   created_at: string
 }
 

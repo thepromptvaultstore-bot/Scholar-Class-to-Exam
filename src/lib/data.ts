@@ -261,7 +261,12 @@ export async function getProfile(userId: string, email: string | null): Promise<
 
 export async function updateProfile(
   userId: string,
-  patch: Partial<Pick<Profile, 'fullName' | 'university' | 'avatarUrl' | 'dailyGoalXp'>>,
+  patch: Partial<
+    Pick<
+      Profile,
+      'fullName' | 'university' | 'avatarUrl' | 'dailyGoalXp' | 'priorGpa' | 'priorCreditHours' | 'gradingSystem'
+    >
+  >,
   // `profiles` has no email column (it lives on the auth user), so without
   // this the mapper defaulted it to null and every save — rename, avatar
   // upload, daily-goal change — silently wiped the email shown on the
@@ -274,6 +279,9 @@ export async function updateProfile(
   if (patch.university !== undefined) dbPatch.university = patch.university
   if (patch.avatarUrl !== undefined) dbPatch.avatar_url = patch.avatarUrl
   if (patch.dailyGoalXp !== undefined) dbPatch.daily_goal_xp = patch.dailyGoalXp
+  if (patch.priorGpa !== undefined) dbPatch.prior_gpa = patch.priorGpa
+  if (patch.priorCreditHours !== undefined) dbPatch.prior_credit_hours = patch.priorCreditHours
+  if (patch.gradingSystem !== undefined) dbPatch.grading_system = patch.gradingSystem
 
   const { data, error } = await supabase
     .from('profiles')
@@ -296,4 +304,3 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
   // Cache-bust so the new photo shows immediately, since the path is stable.
   return `${data.publicUrl}?t=${Date.now()}`
 }
-

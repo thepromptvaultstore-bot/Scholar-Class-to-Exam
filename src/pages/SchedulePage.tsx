@@ -9,7 +9,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
-import { listSemesters, listSubjects } from '../lib/data'
+import { createSemester, createSubject, getProfile, listSemesters, listSubjects, updateProfile } from '../lib/data'
 import {
   createClassScheduleEntry,
   createReminder,
@@ -27,14 +27,17 @@ import { requestNotificationPermission } from '../lib/useReminderNotifications'
 import {
   addScaleEntry,
   computeGpa,
+  computeWeightedPercent,
   deleteScaleEntry,
+  letterForPercent,
   listCourseGrades,
   listGradeScale,
   resetToDefaultScale,
   upsertCourseGrade,
 } from '../lib/grades'
-import type { Semester, Subject } from '../types/domain'
+import type { Profile, Semester, Subject } from '../types/domain'
 import type { ClassScheduleEntry, Reminder } from '../types/domain'
+import type { GradingSystem } from '../types/database'
 import type { CourseGrade, GradeScaleEntry } from '../types/grades'
 
 type Tab = 'timetable' | 'grades'
@@ -64,14 +67,17 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const reloadCourses = async () => {
+    const [sem, subj] = await Promise.all([listSemesters(), listSubjects()])
+    setSemesters(sem)
+    setSubjects(subj)
+  }
+
   useEffect(() => {
-    Promise.all([listSemesters(), listSubjects()])
-      .then(([sem, subj]) => {
-        setSemesters(sem)
-        setSubjects(subj)
-      })
+    reloadCourses()
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load your courses.'))
       .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
@@ -100,12 +106,23 @@ export default function SchedulePage() {
 
       {loading ? (
         <p className="text-xs text-muted">Loading…</p>
-      ) : subjects.length === 0 ? (
-        <p className="text-xs text-muted">Add a course on the Notes tab first.</p>
       ) : tab === 'timetable' ? (
-        <TimetableTab subjects={subjects} userId={user?.id} />
+        subjects.length === 0 ? (
+          <p className="text-xs text-muted">Add a course on the Notes tab first.</p>
+        ) : (
+          <TimetableTab subjects={subjects} userId={user?.id} />
+        )
       ) : (
-        <GradesTab subjects={subjects} semesters={semesters} userId={user?.id} />
+        // Grades doesn't require a course you're actively tracking notes for —
+        // GradesTab can create the semester/course it needs right here, so a
+        // past or currently-untracked course's grade isn't gated on first
+        // setting it up over on the Notes tab.
+        <GradesTab
+          subjects={subjects}
+          semesters={semesters}
+          userId={user?.id}
+          onCoursesChanged={reloadCourses}
+        />
       )}
     </div>
   )
@@ -586,17 +603,22 @@ function TimetableTab({ subjects, userId }: { subjects: Subject[]; userId?: stri
 // --- Grades / GPA, grouped by semester (also covers year-based programs — a
 // "semester" here just means whatever term the user named it) ----------------
 
+const GRADE_SUBJECT_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#06b6d4', '#4f46e5', '#64748b']
+
 function GradesTab({
   subjects,
   semesters,
   userId,
+  onCoursesChanged,
 }: {
   subjects: Subject[]
   semesters: Semester[]
   userId?: string
+  onCoursesChanged: () => Promise<void>
 }) {
   const [scale, setScale] = useState<GradeScaleEntry[]>([])
   const [courses, setCourses] = useState<CourseGrade[]>([])
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showScaleEditor, setShowScaleEditor] = useState(false)
@@ -604,21 +626,84 @@ function GradesTab({
   const [newGpa, setNewGpa] = useState('')
   const [newMinPercent, setNewMinPercent] = useState('')
 
+  // Adding a past (or any untracked) course's grade right from this tab —
+  // it doesn't need to be a course you're taking notes for.
+  const [showAddCourse, setShowAddCourse] = useState(false)
+  const [addCourseSemesterId, setAddCourseSemesterId] = useState('')
+  const [addCourseNewSemesterName, setAddCourseNewSemesterName] = useState('')
+  const [addCourseName, setAddCourseName] = useState('')
+  const [addCourseCredit, setAddCourseCredit] = useState('3')
+
+  // A CGPA (or aggregate %, in yearly mode) the student already had before
+  // tracking courses here — one number instead of re-entering every past
+  // course. Local text state so typing doesn't fight the saved value; only
+  // committed to the profile on "Save".
+  const [priorValue, setPriorValue] = useState('')
+  const [priorCredits, setPriorCredits] = useState('')
+  const [savingPrior, setSavingPrior] = useState(false)
+
   const reload = async () => {
-    const [s, c] = await Promise.all([listGradeScale(), listCourseGrades()])
+    const [s, c, p] = await Promise.all([
+      listGradeScale(),
+      listCourseGrades(),
+      userId ? getProfile(userId, null) : Promise.resolve(null),
+    ])
     setScale(s)
     setCourses(c)
+    if (p) {
+      setProfile(p)
+      setPriorValue(p.priorGpa !== null ? String(p.priorGpa) : '')
+      setPriorCredits(p.priorCreditHours > 0 ? String(p.priorCreditHours) : '')
+    }
   }
 
   useEffect(() => {
     reload().catch((err) => setError(err instanceof Error ? err.message : 'Could not load grades.'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const gradingSystem: GradingSystem = profile?.gradingSystem ?? 'semester'
+  const isYearly = gradingSystem === 'yearly'
+
+  const handleSetSystem = async (system: GradingSystem) => {
+    if (!userId || system === gradingSystem) return
+    setBusy(true)
+    try {
+      const updated = await updateProfile(userId, { gradingSystem: system }, null)
+      setProfile(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not switch grading system.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleSavePrior = async () => {
+    if (!userId) return
+    setSavingPrior(true)
+    setError(null)
+    try {
+      const updated = await updateProfile(
+        userId,
+        {
+          priorGpa: priorValue.trim() === '' ? null : Number(priorValue),
+          priorCreditHours: priorCredits.trim() === '' ? 0 : Number(priorCredits),
+        },
+        null,
+      )
+      setProfile(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save your starting point.')
+    } finally {
+      setSavingPrior(false)
+    }
+  }
 
   const handleResetScale = async () => {
     if (!userId) return
     setBusy(true)
     try {
-      const s = await resetToDefaultScale(userId)
+      const s = await resetToDefaultScale(userId, gradingSystem)
       setScale(s)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reset the grading scale.')
@@ -628,10 +713,10 @@ function GradesTab({
   }
 
   const handleAddScaleEntry = async () => {
-    if (!userId || !newLetter.trim() || !newGpa || !newMinPercent) return
+    if (!userId || !newLetter.trim() || !newMinPercent || (!isYearly && !newGpa)) return
     setBusy(true)
     try {
-      await addScaleEntry(userId, newLetter.trim(), Number(newGpa), Number(newMinPercent))
+      await addScaleEntry(userId, newLetter.trim(), isYearly ? 0 : Number(newGpa), Number(newMinPercent))
       setNewLetter('')
       setNewGpa('')
       setNewMinPercent('')
@@ -646,6 +731,36 @@ function GradesTab({
   const handleDeleteScaleEntry = async (id: string) => {
     await deleteScaleEntry(id)
     await reload()
+  }
+
+  const handleAddCourse = async () => {
+    if (!userId || !addCourseName.trim()) return
+    const creatingNewSemester = addCourseSemesterId === '__new__'
+    if (creatingNewSemester && !addCourseNewSemesterName.trim()) return
+    if (!creatingNewSemester && !addCourseSemesterId) return
+    setBusy(true)
+    setError(null)
+    try {
+      const semesterId = creatingNewSemester
+        ? (await createSemester(userId, addCourseNewSemesterName.trim())).id
+        : addCourseSemesterId
+      const color = GRADE_SUBJECT_COLORS[subjects.length % GRADE_SUBJECT_COLORS.length]
+      const subject = await createSubject(userId, semesterId, addCourseName.trim(), color)
+      // Seed the grade row with the credit hours entered here, rather than
+      // silently discarding them in favor of the row's own 3-credit default.
+      const credit = Number(addCourseCredit) || 3
+      await upsertCourseGrade(userId, subject.id, credit, null, null)
+      setAddCourseName('')
+      setAddCourseCredit('3')
+      setAddCourseNewSemesterName('')
+      setAddCourseSemesterId('')
+      setShowAddCourse(false)
+      await Promise.all([onCoursesChanged(), reload()])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add that course.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const courseFor = (subjectId: string) => courses.find((c) => c.subjectId === subjectId)
@@ -670,7 +785,13 @@ function GradesTab({
     }
   }
 
-  const { gpa, totalCredits } = computeGpa(scale, courses)
+  const baseline = { gpa: profile?.priorGpa ?? null, credits: profile?.priorCreditHours ?? 0 }
+  const { gpa, totalCredits } = computeGpa(scale, courses, baseline)
+  const { percent, totalCredits: yearlyCredits } = computeWeightedPercent(courses, {
+    percent: profile?.priorGpa ?? null,
+    credits: profile?.priorCreditHours ?? 0,
+  })
+  const yearlyClass = percent !== null ? letterForPercent(scale, percent) : null
 
   const semesterGroups = useMemo(
     () =>
@@ -688,6 +809,23 @@ function GradesTab({
     <div className="flex flex-col gap-6">
       {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
 
+      <div className="flex gap-1.5 rounded-full bg-black/[0.03] p-1 dark:bg-white/[0.06]">
+        {(['semester', 'yearly'] as GradingSystem[]).map((sys) => (
+          <button
+            key={sys}
+            onClick={() => handleSetSystem(sys)}
+            disabled={busy}
+            className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-colors ${
+              gradingSystem === sys
+                ? 'bg-white text-gray-900 shadow-sm dark:bg-white/10 dark:text-white'
+                : 'text-muted'
+            }`}
+          >
+            {sys === 'semester' ? 'Semester (GPA)' : 'Yearly (%/Class)'}
+          </button>
+        ))}
+      </div>
+
       <div
         className="rounded-2xl p-5 text-white"
         style={{
@@ -695,18 +833,147 @@ function GradesTab({
           boxShadow: '0 12px 28px -10px rgba(37, 99, 235, 0.55)',
         }}
       >
-        <p className="text-xs font-medium uppercase tracking-wide opacity-80">Cumulative GPA / CGPA</p>
-        <p className="mt-1 text-3xl font-semibold">{gpa !== null ? gpa.toFixed(2) : '—'}</p>
-        <p className="mt-1 text-xs opacity-80">
-          {totalCredits} credit hour{totalCredits === 1 ? '' : 's'} graded across {semesterGroups.length}{' '}
-          semester{semesterGroups.length === 1 ? '' : 's'}
-        </p>
+        {isYearly ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wide opacity-80">Overall average</p>
+            <p className="mt-1 text-3xl font-semibold">{percent !== null ? `${percent.toFixed(1)}%` : '—'}</p>
+            <p className="mt-1 text-xs opacity-80">
+              {yearlyClass ? `${yearlyClass} · ` : ''}
+              {yearlyCredits} credit hour{yearlyCredits === 1 ? '' : 's'} graded across{' '}
+              {semesterGroups.length} year{semesterGroups.length === 1 ? '' : 's'}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-medium uppercase tracking-wide opacity-80">Cumulative GPA / CGPA</p>
+            <p className="mt-1 text-3xl font-semibold">{gpa !== null ? gpa.toFixed(2) : '—'}</p>
+            <p className="mt-1 text-xs opacity-80">
+              {totalCredits} credit hour{totalCredits === 1 ? '' : 's'} graded across {semesterGroups.length}{' '}
+              semester{semesterGroups.length === 1 ? '' : 's'}
+            </p>
+          </>
+        )}
       </div>
+
+      <div className="glass-card flex flex-col gap-2 rounded-2xl p-3">
+        <p className="text-xs font-medium text-gray-900 dark:text-white">
+          Already have a {isYearly ? 'running average' : 'CGPA'} from before you started using this app?
+        </p>
+        <p className="text-xs text-muted">
+          Enter it once as a starting point instead of re-adding every past course — it's folded into
+          the total above.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={priorValue}
+            onChange={(e) => setPriorValue(e.target.value)}
+            type="number"
+            step={0.01}
+            placeholder={isYearly ? 'Prior average %' : 'Prior CGPA'}
+            className="input-field flex-1 !py-1.5 text-xs"
+          />
+          <input
+            value={priorCredits}
+            onChange={(e) => setPriorCredits(e.target.value)}
+            type="number"
+            min={0}
+            step={0.5}
+            placeholder="Credit hours"
+            className="input-field w-28 !py-1.5 text-xs"
+          />
+          <button
+            onClick={handleSavePrior}
+            disabled={savingPrior}
+            className="btn-primary !px-3 !py-1.5 text-xs"
+          >
+            {savingPrior ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      <section>
+        {!showAddCourse ? (
+          <button
+            onClick={() => setShowAddCourse(true)}
+            className="btn-secondary w-full border-dashed !py-2"
+          >
+            <Plus size={14} /> Add a previous or current course's grade
+          </button>
+        ) : (
+          <div className="glass-card flex flex-col gap-2 rounded-2xl p-3">
+            <p className="text-xs text-muted">
+              Doesn't need to be a course you're taking notes for — great for logging grades from a
+              past semester.
+            </p>
+            <select
+              value={addCourseSemesterId}
+              onChange={(e) => setAddCourseSemesterId(e.target.value)}
+              className="input-field !py-1.5 text-xs"
+            >
+              <option value="">Choose a semester…</option>
+              {semesters.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+              <option value="__new__">+ New semester…</option>
+            </select>
+            {addCourseSemesterId === '__new__' && (
+              <input
+                value={addCourseNewSemesterName}
+                onChange={(e) => setAddCourseNewSemesterName(e.target.value)}
+                placeholder="e.g. Spring 2023, or Year 1"
+                className="input-field !py-1.5 text-xs"
+              />
+            )}
+            <div className="flex gap-2">
+              <input
+                value={addCourseName}
+                onChange={(e) => setAddCourseName(e.target.value)}
+                placeholder="Course name"
+                className="input-field flex-1 !py-1.5 text-xs"
+              />
+              <input
+                value={addCourseCredit}
+                onChange={(e) => setAddCourseCredit(e.target.value)}
+                type="number"
+                min={0}
+                step={0.5}
+                placeholder="Credits"
+                className="input-field w-20 !py-1.5 text-xs"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAddCourse(false)}
+                className="btn-secondary flex-1 !py-1.5 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={
+                  busy ||
+                  !addCourseName.trim() ||
+                  (addCourseSemesterId === '__new__'
+                    ? !addCourseNewSemesterName.trim()
+                    : !addCourseSemesterId)
+                }
+                onClick={handleAddCourse}
+                className="btn-primary flex-1 !py-1.5 text-xs"
+              >
+                {busy ? 'Adding…' : 'Add course'}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
 
       {[...semesterGroups, ...(ungrouped.length > 0 ? [{ semester: null, subjects: ungrouped }] : [])].map(
         (group, gi) => {
           const groupCourses = courses.filter((c) => group.subjects.some((s) => s.id === c.subjectId))
           const { gpa: semGpa, totalCredits: semCredits } = computeGpa(scale, groupCourses)
+          const { percent: groupPercent, totalCredits: groupPercentCredits } = computeWeightedPercent(groupCourses)
+          const groupClass = groupPercent !== null ? letterForPercent(scale, groupPercent) : null
           return (
             <section key={group.semester?.id ?? `ungrouped-${gi}`}>
               <div className="mb-2 flex items-center justify-between">
@@ -714,7 +981,9 @@ function GradesTab({
                   {group.semester?.name ?? 'Other courses'}
                 </h2>
                 <span className="text-xs text-muted">
-                  Semester GPA: {semGpa !== null ? semGpa.toFixed(2) : '—'} ({semCredits} cr)
+                  {isYearly
+                    ? `${groupPercent !== null ? groupPercent.toFixed(1) + '%' : '—'}${groupClass ? ` · ${groupClass}` : ''} (${groupPercentCredits} cr)`
+                    : `Semester GPA: ${semGpa !== null ? semGpa.toFixed(2) : '—'} (${semCredits} cr)`}
                 </span>
               </div>
               <div className="flex flex-col gap-2">
@@ -745,19 +1014,26 @@ function GradesTab({
                         className="input-field w-16 !py-1.5 text-xs"
                         title="Grade percent"
                       />
-                      <select
-                        defaultValue={c?.letterGrade ?? ''}
-                        onChange={(e) => handleUpdateCourse(s.id, 'letterGrade', e.target.value)}
-                        className="input-field w-20 !py-1.5 text-xs"
-                        title="Letter grade (overrides %)"
-                      >
-                        <option value="">Letter</option>
-                        {scale.map((e) => (
-                          <option key={e.id} value={e.letter}>
-                            {e.letter}
-                          </option>
-                        ))}
-                      </select>
+                      {!isYearly && (
+                        <select
+                          defaultValue={c?.letterGrade ?? ''}
+                          onChange={(e) => handleUpdateCourse(s.id, 'letterGrade', e.target.value)}
+                          className="input-field w-20 !py-1.5 text-xs"
+                          title="Letter grade (overrides %)"
+                        >
+                          <option value="">Letter</option>
+                          {scale.map((e) => (
+                            <option key={e.id} value={e.letter}>
+                              {e.letter}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {isYearly && c?.gradePercent !== null && c?.gradePercent !== undefined && (
+                        <span className="w-20 shrink-0 text-center text-xs text-muted">
+                          {letterForPercent(scale, c.gradePercent) ?? '—'}
+                        </span>
+                      )}
                     </div>
                   )
                 })}
@@ -779,7 +1055,7 @@ function GradesTab({
                 onClick={handleResetScale}
                 className="btn-secondary w-full border-dashed"
               >
-                Use a standard 4.0 scale to start
+                {isYearly ? 'Use a starting Class/Division scale' : 'Use a standard 4.0 scale to start'}
               </button>
             ) : (
               <>
@@ -790,7 +1066,8 @@ function GradesTab({
                       className="glass-card flex items-center justify-between rounded-xl px-3 py-1.5 text-xs"
                     >
                       <span>
-                        {e.letter} — {e.gpa.toFixed(1)} GPA, {e.minPercent}%+
+                        {e.letter} — {isYearly ? '' : `${e.gpa.toFixed(1)} GPA, `}
+                        {e.minPercent}%+
                       </span>
                       <button onClick={() => handleDeleteScaleEntry(e.id)} className="text-muted hover:text-red-500">
                         <Trash2 size={13} />
@@ -799,7 +1076,7 @@ function GradesTab({
                   ))}
                 </div>
                 <button onClick={handleResetScale} disabled={busy} className="text-xs text-muted underline">
-                  Reset to standard 4.0 scale
+                  {isYearly ? 'Reset to starting Class/Division scale' : 'Reset to standard 4.0 scale'}
                 </button>
               </>
             )}
@@ -807,17 +1084,19 @@ function GradesTab({
               <input
                 value={newLetter}
                 onChange={(e) => setNewLetter(e.target.value)}
-                placeholder="Letter"
-                className="input-field w-16 !py-1.5 text-xs"
+                placeholder={isYearly ? 'Class name' : 'Letter'}
+                className="input-field w-20 !py-1.5 text-xs"
               />
-              <input
-                value={newGpa}
-                onChange={(e) => setNewGpa(e.target.value)}
-                type="number"
-                step={0.1}
-                placeholder="GPA"
-                className="input-field w-16 !py-1.5 text-xs"
-              />
+              {!isYearly && (
+                <input
+                  value={newGpa}
+                  onChange={(e) => setNewGpa(e.target.value)}
+                  type="number"
+                  step={0.1}
+                  placeholder="GPA"
+                  className="input-field w-16 !py-1.5 text-xs"
+                />
+              )}
               <input
                 value={newMinPercent}
                 onChange={(e) => setNewMinPercent(e.target.value)}
@@ -826,7 +1105,7 @@ function GradesTab({
                 className="input-field w-16 !py-1.5 text-xs"
               />
               <button
-                disabled={busy || !newLetter.trim() || !newGpa || !newMinPercent}
+                disabled={busy || !newLetter.trim() || !newMinPercent || (!isYearly && !newGpa)}
                 onClick={handleAddScaleEntry}
                 className="btn-primary flex-1 !py-1.5 text-xs"
               >
