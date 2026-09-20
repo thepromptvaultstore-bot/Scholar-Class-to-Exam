@@ -5,6 +5,7 @@ import {
   Camera,
   Check,
   GraduationCap,
+  ImagePlus,
   Layers,
   Mic,
   Pencil,
@@ -168,19 +169,20 @@ function AllNotesTab({
     })
     .sort((a, b) => b.sessionDate.localeCompare(a.sessionDate))
 
-  const handleStartNote = async (mode: 'manual' | 'voice' | 'photo') => {
+  const handleStartNote = async (mode: 'manual' | 'voice' | 'photo', photoSource: 'camera' | 'gallery' = 'camera') => {
     if (!userId || !newNoteSubject) return
     setBusy(true)
     setError(null)
     try {
       const date = todayISO()
+      const photoState = mode === 'photo' ? { autoScan: true, autoScanSource: photoSource } : undefined
       const existing = await findNoteForSubjectAndDate(newNoteSubject, date)
       if (existing) {
-        navigate(`/notes/${existing.id}`, { state: mode === 'photo' ? { autoScan: true } : undefined })
+        navigate(`/notes/${existing.id}`, { state: photoState })
         return
       }
       const note = await createNote(userId, newNoteSubject, date, mode)
-      navigate(`/notes/${note.id}`, { state: mode === 'photo' ? { autoScan: true } : undefined })
+      navigate(`/notes/${note.id}`, { state: photoState })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start a new note.')
     } finally {
@@ -218,7 +220,7 @@ function AllNotesTab({
             setSemesterFilter(e.target.value)
             setSubjectFilter('')
           }}
-          className="input-field sm:w-40"
+          className="input-field shrink-0 sm:w-40"
         >
           <option value="">All semesters</option>
           {semesters.map((s) => (
@@ -230,7 +232,7 @@ function AllNotesTab({
         <select
           value={subjectFilter}
           onChange={(e) => setSubjectFilter(e.target.value)}
-          className="input-field sm:w-40"
+          className="input-field shrink-0 sm:w-40"
         >
           <option value="">All courses</option>
           {subjectsInFilteredSemester.map((s) => (
@@ -288,10 +290,17 @@ function AllNotesTab({
             </button>
             <button
               disabled={busy}
-              onClick={() => handleStartNote('photo')}
+              onClick={() => handleStartNote('photo', 'camera')}
               className="btn-secondary flex-1 !py-2.5 text-xs"
             >
               <Camera size={14} /> Scan handwritten
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => handleStartNote('photo', 'gallery')}
+              className="btn-secondary flex-1 !py-2.5 text-xs"
+            >
+              <ImagePlus size={14} /> Add images
             </button>
             <button
               disabled={busy}

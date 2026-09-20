@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Camera, Check, ChevronLeft, Copy, Download, Mic, Paperclip, Printer, Share2, Square, Trash2, Users } from 'lucide-react'
+import {
+  Camera,
+  Check,
+  ChevronLeft,
+  Copy,
+  Download,
+  ImagePlus,
+  Mic,
+  Paperclip,
+  Printer,
+  Share2,
+  Square,
+  Trash2,
+  Users,
+} from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import {
   attachMaterial,
@@ -36,7 +50,9 @@ export default function NoteEditorPage() {
   const location = useLocation()
   const { user } = useAuthStore()
   const recorder = useRecorder()
-  const autoScan = Boolean((location.state as { autoScan?: boolean } | null)?.autoScan)
+  const navState = location.state as { autoScan?: boolean; autoScanSource?: 'camera' | 'gallery' } | null
+  const autoScan = Boolean(navState?.autoScan)
+  const autoScanSource = navState?.autoScanSource ?? 'camera'
   const autoScanTriggered = useRef(false)
 
   const [note, setNote] = useState<Note | null>(null)
@@ -59,6 +75,7 @@ export default function NoteEditorPage() {
   const [publishing, setPublishing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const saveTimer = useRef<number | null>(null)
 
   useEffect(() => {
@@ -178,9 +195,13 @@ export default function NoteEditorPage() {
   useEffect(() => {
     if (autoScan && !loading && note && !autoScanTriggered.current) {
       autoScanTriggered.current = true
-      photoInputRef.current?.click()
+      if (autoScanSource === 'gallery') {
+        galleryInputRef.current?.click()
+      } else {
+        photoInputRef.current?.click()
+      }
     }
-  }, [autoScan, loading, note])
+  }, [autoScan, autoScanSource, loading, note])
 
   // Thumbnail previews for image materials (signed URLs, so fetched lazily
   // whenever the material list changes rather than kept as public links).
@@ -497,6 +518,14 @@ export default function NoteEditorPage() {
         >
           <Camera size={15} />
         </button>
+        <button
+          onClick={() => galleryInputRef.current?.click()}
+          disabled={scanning}
+          className="btn-secondary !px-3"
+          aria-label="Add images from your device"
+        >
+          <ImagePlus size={15} />
+        </button>
         <button onClick={() => fileInputRef.current?.click()} className="btn-secondary !px-3">
           <Paperclip size={15} />
         </button>
@@ -505,6 +534,18 @@ export default function NoteEditorPage() {
           type="file"
           accept="image/*"
           capture="environment"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = e.target.files
+            if (files && files.length > 0) handleScanPhotos(files)
+            e.target.value = ''
+          }}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
           multiple
           className="hidden"
           onChange={(e) => {
