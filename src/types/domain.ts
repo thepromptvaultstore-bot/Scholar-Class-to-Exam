@@ -83,6 +83,10 @@ export interface Note {
   transcriptionStatus: TranscriptionStatus
   transcriptionEngine: string | null
   shareToken: string | null
+  // Whether this note is published to the course-notes community browser —
+  // opt-in, set by the note's owner. See lib/community.ts.
+  communityVisible: boolean
+  communityCourseLabel: string | null
   createdAt: string
   updatedAt: string
 }

@@ -59,6 +59,8 @@ export const noteFromRow = (r: NoteRow): Note => ({
   transcriptionStatus: r.transcription_status,
   transcriptionEngine: r.transcription_engine,
   shareToken: r.share_token,
+  communityVisible: r.community_visible,
+  communityCourseLabel: r.community_course_label,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 })

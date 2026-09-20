@@ -77,6 +77,8 @@ export async function cloneSharedNote(
     transcriptionStatus: data.transcription_status,
     transcriptionEngine: data.transcription_engine,
     shareToken: data.share_token,
+    communityVisible: false,
+    communityCourseLabel: null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   }

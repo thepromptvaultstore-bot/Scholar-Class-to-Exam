@@ -7,6 +7,7 @@ import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
 import NotesPage from './pages/NotesPage'
 import NoteEditorPage from './pages/NoteEditorPage'
+import CommunityPage from './pages/CommunityPage'
 import PracticePage from './pages/PracticePage'
 import PracticeSetPage from './pages/PracticeSetPage'
 import SlidesPage from './pages/SlidesPage'
@@ -44,6 +45,7 @@ function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/notes" element={<NotesPage />} />
                   <Route path="/notes/:id" element={<NoteEditorPage />} />
+                  <Route path="/community" element={<CommunityPage />} />
                   <Route path="/practice" element={<PracticePage />} />
                   <Route path="/practice/:id" element={<PracticeSetPage />} />
                   <Route path="/slides" element={<SlidesPage />} />

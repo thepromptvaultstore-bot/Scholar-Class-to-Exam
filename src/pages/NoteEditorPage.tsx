@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Camera, Check, ChevronLeft, Copy, Download, Mic, Paperclip, Printer, Share2, Square, Trash2 } from 'lucide-react'
+import { Camera, Check, ChevronLeft, Copy, Download, Mic, Paperclip, Printer, Share2, Square, Trash2, Users } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import {
   attachMaterial,
   deleteNote,
   getMaterialUrl,
   listMaterials,
+  listSubjects,
+  publishNoteToCommunity,
   removeMaterial,
   shareNote,
+  unpublishNoteFromCommunity,
   unshareNote,
   uploadLectureAudio,
   updateNote,
@@ -51,6 +54,9 @@ export default function NoteEditorPage() {
   const [showShare, setShowShare] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showPublish, setShowPublish] = useState(false)
+  const [courseLabel, setCourseLabel] = useState('')
+  const [publishing, setPublishing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const saveTimer = useRef<number | null>(null)
@@ -79,13 +85,23 @@ export default function NoteEditorPage() {
           transcriptionStatus: data.transcription_status,
           transcriptionEngine: data.transcription_engine,
           shareToken: data.share_token,
+          communityVisible: data.community_visible,
+          communityCourseLabel: data.community_course_label,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         }
         setNote(n)
         setContent(n.content)
         setTitle(n.title)
+        setCourseLabel(n.communityCourseLabel ?? '')
         setMaterials(await listMaterials(n.id))
+        listSubjects()
+          .then((subj) => {
+            if (!cancelled) {
+              setCourseLabel((prev) => prev || subj.find((s) => s.id === n.subjectId)?.name || '')
+            }
+          })
+          .catch(() => {})
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load this note.')
       } finally {
@@ -232,6 +248,37 @@ export default function NoteEditorPage() {
     }
   }
 
+  const handlePublish = async () => {
+    if (!note || !courseLabel.trim()) return
+    setPublishing(true)
+    setError(null)
+    try {
+      const token = await publishNoteToCommunity(note.id, courseLabel.trim())
+      setNote((prev) =>
+        prev ? { ...prev, shareToken: token, communityVisible: true, communityCourseLabel: courseLabel.trim() } : prev,
+      )
+      setShowPublish(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not publish this note.')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const handleUnpublish = async () => {
+    if (!note) return
+    setPublishing(true)
+    setError(null)
+    try {
+      await unpublishNoteFromCommunity(note.id)
+      setNote((prev) => (prev ? { ...prev, communityVisible: false } : prev))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not unpublish this note.')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   const handleAttach = async (file: File) => {
     if (!user || !note) return
     setError(null)
@@ -338,6 +385,13 @@ export default function NoteEditorPage() {
         <button onClick={handleToggleShare} className="p-1 text-muted hover:text-indigo-500" aria-label="Share">
           <Share2 size={16} />
         </button>
+        <button
+          onClick={() => setShowPublish((s) => !s)}
+          className={`p-1 hover:text-indigo-500 ${note.communityVisible ? 'text-indigo-500' : 'text-muted'}`}
+          aria-label="Publish to course notes"
+        >
+          <Users size={16} />
+        </button>
         <button onClick={handleDeleteNote} className="p-1 text-muted hover:text-red-500">
           <Trash2 size={16} />
         </button>
@@ -347,6 +401,47 @@ export default function NoteEditorPage() {
       </p>
 
       {error && <ErrorBanner message={error} showUpgrade={limitReached} />}
+
+      {showPublish && (
+        <div className="glass-card flex flex-col gap-2 rounded-2xl p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted">
+              {note.communityVisible ? 'Published to course notes' : 'Publish to course notes'}
+            </p>
+            <button onClick={() => setShowPublish(false)} className="text-muted">
+              ×
+            </button>
+          </div>
+          <p className="text-[11px] text-muted">
+            Other students at your university can find and view this note by course. It becomes a public link,
+            like sharing — publishing just also lists it under the course name below.
+          </p>
+          <input
+            value={courseLabel}
+            onChange={(e) => setCourseLabel(e.target.value)}
+            placeholder="Course, e.g. MKT202 or Principles of Marketing"
+            className="input-field !py-2 text-xs"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handlePublish}
+              disabled={publishing || !courseLabel.trim()}
+              className="btn-primary flex-1 !py-2 text-xs"
+            >
+              {publishing ? 'Saving…' : note.communityVisible ? 'Update' : 'Publish'}
+            </button>
+            {note.communityVisible && (
+              <button
+                onClick={handleUnpublish}
+                disabled={publishing}
+                className="btn-secondary !py-2 text-xs text-red-500"
+              >
+                Unpublish
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {showShare && (
         <div className="glass-card flex flex-col gap-2 rounded-2xl p-3">

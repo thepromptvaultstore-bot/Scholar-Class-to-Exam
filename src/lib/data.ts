@@ -194,6 +194,25 @@ export async function unshareNote(id: string): Promise<void> {
   if (error) throw error
 }
 
+// Publishing to the course-notes community browser needs a working share
+// link (the browse list's "open" action reuses the same /s/note/:token
+// viewer as a private share), so this ensures one exists rather than
+// requiring the student to have already shared the note manually first.
+export async function publishNoteToCommunity(id: string, courseLabel: string): Promise<string> {
+  const token = await shareNote(id)
+  const { error } = await supabase
+    .from('notes')
+    .update({ community_visible: true, community_course_label: courseLabel })
+    .eq('id', id)
+  if (error) throw error
+  return token
+}
+
+export async function unpublishNoteFromCommunity(id: string): Promise<void> {
+  const { error } = await supabase.from('notes').update({ community_visible: false }).eq('id', id)
+  if (error) throw error
+}
+
 export async function listMaterials(noteId: string): Promise<NoteMaterial[]> {
   const { data, error } = await supabase
     .from('note_materials')

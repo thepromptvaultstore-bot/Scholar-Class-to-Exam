@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   BookOpen,
   Camera,
@@ -11,6 +11,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Users,
   X,
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
@@ -67,7 +68,12 @@ export default function NotesPage() {
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-6 pb-10">
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Notes</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Notes</h1>
+        <Link to="/community" className="flex items-center gap-1.5 text-xs font-medium text-indigo-500">
+          <Users size={14} /> Course notes
+        </Link>
+      </div>
       {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
 
       <div className="flex gap-2 border-b border-black/5 dark:border-white/10">

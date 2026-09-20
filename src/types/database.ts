@@ -96,6 +96,12 @@ export interface NoteRow {
   transcription_status: TranscriptionStatus
   transcription_engine: string | null
   share_token: string | null
+  // Opt-in only — set by the note's own owner when they publish it to the
+  // course-notes community browser (see lib/community.ts). Never true by
+  // default, and unrelated to share_token, which still also powers the
+  // private "share this link" flow on its own.
+  community_visible: boolean
+  community_course_label: string | null
   created_at: string
   updated_at: string
 }
