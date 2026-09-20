@@ -134,7 +134,8 @@ export default function NoteEditorPage() {
       try {
         const path = await uploadLectureAudio(user.id, note.id, recorder.blob)
         await updateNote(note.id, { audioPath: path })
-        const { transcript } = await requestTranscription(path)
+        const durationSeconds = Math.max(1, Math.round(recorder.elapsedMs / 1000))
+        const { transcript } = await requestTranscription(path, durationSeconds)
         const merged = content ? `${content}\n\n${transcript}` : transcript
         setContent(merged)
         await updateNote(note.id, {

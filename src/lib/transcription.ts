@@ -3,9 +3,10 @@ import { isLimitReachedError, LimitReachedError } from './entitlements'
 
 export async function requestTranscription(
   storagePath: string,
+  durationSeconds: number,
 ): Promise<{ transcript: string; engine: string }> {
   const { data, error } = await supabase.functions.invoke('transcribe-audio', {
-    body: { storagePath },
+    body: { storagePath, durationSeconds },
   })
   if (error) {
     if (await isLimitReachedError(error)) throw new LimitReachedError()

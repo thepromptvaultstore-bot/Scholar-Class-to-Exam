@@ -25,7 +25,18 @@ export interface ProfileRow {
   usage_practice_count: number
   usage_slides_count: number
   usage_scan_count: number
+  // Superseded by the three audio_* columns below (0015) — lecture
+  // transcription is metered in seconds now, not call count. Left mapped
+  // here as legacy/unused since the DB column itself isn't dropped.
   usage_audio_count: number
+  // Lifetime free-tier allowance used, in seconds (30 min total, once).
+  audio_free_seconds_used: number
+  // This month's Scholar Pro allowance used, in seconds (resets with
+  // usage_month_key, 12 hours/month).
+  audio_period_seconds_used: number
+  // Purchased top-up balance, in seconds — never auto-resets, drawn down
+  // only after the monthly allowance runs out. Always 0 until top-ups ship.
+  audio_bonus_seconds: number
   prior_gpa: number | null
   prior_credit_hours: number
   grading_system: GradingSystem

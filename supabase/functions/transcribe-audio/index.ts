@@ -16,7 +16,7 @@
 // Response:     { transcript: string, engine: string }
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { checkAndConsume, limitMessage } from '../_shared/entitlements.ts'
+import { checkAndConsumeAudio, audioLimitMessage } from '../_shared/entitlements.ts'
 
 // Browsers preflight a cross-origin POST with a JSON body via an OPTIONS
 // request; without these headers the browser blocks the real request
@@ -132,9 +132,18 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
   try {
-    const { storagePath } = await req.json()
+    const { storagePath, durationSeconds } = await req.json()
     if (!storagePath) {
       return new Response(JSON.stringify({ error: 'storagePath is required' }), {
+        status: 400,
+        headers: corsHeaders,
+      })
+    }
+    // Required (not defaulted) so a missing value fails loudly instead of
+    // silently metering the recording as free — the client always has a
+    // real elapsed-recording time to send (see useRecorder.ts).
+    if (!durationSeconds || Number(durationSeconds) <= 0) {
+      return new Response(JSON.stringify({ error: 'durationSeconds is required' }), {
         status: 400,
         headers: corsHeaders,
       })
@@ -149,9 +158,9 @@ Deno.serve(async (req) => {
     // in src/lib/data.ts, the same convention used for every other bucket
     // path in this app.
     const ownerId = storagePath.split('/')[0]
-    const entitlement = await checkAndConsume(supabase, ownerId, 'audio')
+    const entitlement = await checkAndConsumeAudio(supabase, ownerId, Number(durationSeconds))
     if (!entitlement.allowed) {
-      return new Response(JSON.stringify({ error: limitMessage('audio'), code: 'limit_reached' }), {
+      return new Response(JSON.stringify({ error: audioLimitMessage(entitlement.reason), code: 'limit_reached' }), {
         status: 402,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

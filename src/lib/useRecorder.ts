@@ -31,6 +31,11 @@ export function useRecorder() {
         if (e.data.size > 0) chunksRef.current.push(e.data)
       }
       recorder.onstop = () => {
+        // The 250ms tick can be up to that far behind the real stop time —
+        // settle the final duration precisely here, before the blob (and
+        // whatever reads elapsedMs off the back of it, like the transcription
+        // entitlement check) is set.
+        setElapsedMs(Date.now() - startedAtRef.current)
         const merged = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
         setBlob(merged)
         stream.getTracks().forEach((t) => t.stop())

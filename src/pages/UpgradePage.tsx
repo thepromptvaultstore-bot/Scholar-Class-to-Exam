@@ -99,8 +99,8 @@ export default function UpgradePage() {
         }}
       >
         <Crown size={26} />
-        <p className="mt-1 text-base font-semibold">Unlimited AI, no monthly limits</p>
-        <p className="text-xs opacity-90">Practice sets, slide decks, page scans & lecture transcription</p>
+        <p className="mt-1 text-base font-semibold">Unlimited practice, slides & scans</p>
+        <p className="text-xs opacity-90">Plus 12 hours of lecture transcription every month</p>
       </div>
 
       {error && <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{error}</p>}
@@ -111,9 +111,13 @@ export default function UpgradePage() {
         {(Object.keys(FEATURE_LABEL) as Array<keyof typeof FEATURE_LABEL>).map((key) => (
           <div key={key} className="flex items-center justify-between text-sm">
             <span className="text-gray-900 dark:text-white">{FEATURE_LABEL[key]}</span>
-            <span className="text-xs text-muted">{FREE_LIMITS[key]}/mo → Unlimited</span>
+            <span className="text-xs text-muted">{FREE_LIMITS[key]} once → Unlimited</span>
           </div>
         ))}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-900 dark:text-white">Lecture transcription</span>
+          <span className="text-xs text-muted">30 min once → 12 hrs/month</span>
+        </div>
         <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-500">
           <Check size={13} /> Priority-friendly — never blocked mid-study session
         </div>

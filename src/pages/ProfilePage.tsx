@@ -5,7 +5,15 @@ import { useAuthStore } from '../store/authStore'
 import { getProfile, listNotes, listSubjects, updateProfile, uploadAvatar } from '../lib/data'
 import { getLevelInfo, getStreakDays, listEarnedBadges } from '../lib/gamification'
 import { BADGE_CATALOG, DAILY_GOAL_PRESETS } from '../types/gamification'
-import { FEATURE_LABEL, FREE_LIMITS, isPro, remaining, type MeteredFeature } from '../lib/entitlements'
+import {
+  FEATURE_LABEL,
+  FREE_LIMITS,
+  audioSecondsRemaining,
+  formatMinutes,
+  isPro,
+  remaining,
+  type MeteredFeature,
+} from '../lib/entitlements'
 import type { Profile } from '../types/domain'
 import type { EarnedBadge, LevelInfo } from '../types/gamification'
 
@@ -256,22 +264,39 @@ export default function ProfilePage() {
                 )}
               </div>
               {isPro(profile) ? (
-                <p className="text-xs text-muted">
-                  Unlimited AI generations
-                  {profile.subscriptionExpiresAt
-                    ? ` · renews ${new Date(profile.subscriptionExpiresAt).toLocaleDateString()}`
-                    : ''}
-                </p>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-muted">
+                    Unlimited practice sets, slide decks & page scans
+                    {profile.subscriptionExpiresAt
+                      ? ` · renews ${new Date(profile.subscriptionExpiresAt).toLocaleDateString()}`
+                      : ''}
+                  </p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted">Lecture transcription</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {formatMinutes(audioSecondsRemaining(profile))} left this month
+                    </span>
+                  </div>
+                </div>
               ) : (
                 <div className="flex flex-col gap-1.5">
                   {(Object.keys(FEATURE_LABEL) as MeteredFeature[]).map((key) => (
                     <div key={key} className="flex items-center justify-between text-xs">
                       <span className="text-muted">{FEATURE_LABEL[key]}</span>
                       <span className="font-medium text-gray-900 dark:text-white">
-                        {remaining(profile, key)} / {FREE_LIMITS[key]} left this month
+                        {remaining(profile, key)} / {FREE_LIMITS[key]} left
                       </span>
                     </div>
                   ))}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted">Lecture transcription</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {formatMinutes(audioSecondsRemaining(profile))} / 30 min left
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted">
+                    One-time allowance, not monthly — upgrade for a 12-hour refill every month.
+                  </p>
                 </div>
               )}
             </div>

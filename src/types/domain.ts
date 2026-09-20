@@ -19,7 +19,18 @@ export interface Profile {
   usagePracticeCount: number
   usageSlidesCount: number
   usageScanCount: number
+  // Legacy — superseded by the three audio fields below; lecture
+  // transcription is metered in seconds now, not call count.
   usageAudioCount: number
+  // Lifetime free-tier lecture-transcription allowance used, in seconds
+  // (30 min total, once — see lib/entitlements.ts).
+  audioFreeSecondsUsed: number
+  // This month's Scholar Pro allowance used, in seconds (resets with
+  // usageMonthKey, 12 hours/month).
+  audioPeriodSecondsUsed: number
+  // Purchased top-up balance, in seconds — never auto-resets. Always 0
+  // until top-up purchases ship.
+  audioBonusSeconds: number
   // A CGPA the student already had before tracking courses in this app —
   // folded into computeGpa's weighted average as a starting balance.
   priorGpa: number | null
