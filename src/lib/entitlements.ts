@@ -8,9 +8,9 @@ import type { Profile } from '../types/domain'
 // practice / slides / scans: a ONE-TIME lifetime allowance for free
 // accounts, not monthly — see the server file for why.
 export const FREE_LIMITS = {
-  practice: 5,
-  slides: 5,
-  scans: 5,
+  practice: 2,
+  slides: 2,
+  scans: 2,
 } as const
 
 export type MeteredFeature = keyof typeof FREE_LIMITS

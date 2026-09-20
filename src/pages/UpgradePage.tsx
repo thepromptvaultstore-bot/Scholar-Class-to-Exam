@@ -3,7 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Crown, Check, Sparkles } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { getProfile } from '../lib/data'
-import { fetchProPlanPrices, purchasePro, restorePro, PLAN_MONTHLY, PLAN_YEARLY } from '../lib/billing'
+import {
+  fetchProPlanPrices,
+  getManageSubscriptionUrl,
+  purchasePro,
+  restorePro,
+  PLAN_MONTHLY,
+  PLAN_YEARLY,
+} from '../lib/billing'
 import { FEATURE_LABEL, FREE_LIMITS } from '../lib/entitlements'
 
 const FALLBACK_PRICE: Record<string, string> = {
@@ -158,7 +165,11 @@ export default function UpgradePage() {
       </button>
 
       <p className="text-center text-[10.5px] text-muted">
-        Billed through your Google Play account. Cancel anytime from Google Play &gt; Subscriptions.
+        Billed through your Google Play account.{' '}
+        <a href={getManageSubscriptionUrl()} target="_blank" rel="noreferrer" className="text-indigo-500 underline">
+          Manage or cancel anytime
+        </a>{' '}
+        in Google Play &gt; Subscriptions.
       </p>
     </div>
   )

@@ -23,9 +23,9 @@
 // subscription_tier/subscription_expires_at that verify-purchase wrote.
 
 export const FREE_LIMITS = {
-  practice: 5,
-  slides: 5,
-  scans: 5,
+  practice: 2,
+  slides: 2,
+  scans: 2,
 } as const
 
 export type MeteredFeature = keyof typeof FREE_LIMITS

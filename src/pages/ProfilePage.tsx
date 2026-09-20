@@ -4,6 +4,7 @@ import { Camera, ChevronLeft, Crown, Flame, Lock, LogOut, Sparkles, Trophy } fro
 import { useAuthStore } from '../store/authStore'
 import { getProfile, listNotes, listSubjects, updateProfile, uploadAvatar } from '../lib/data'
 import { getLevelInfo, getStreakDays, listEarnedBadges } from '../lib/gamification'
+import { getManageSubscriptionUrl } from '../lib/billing'
 import { BADGE_CATALOG, DAILY_GOAL_PRESETS } from '../types/gamification'
 import {
   FEATURE_LABEL,
@@ -277,6 +278,14 @@ export default function ProfilePage() {
                       {formatMinutes(audioSecondsRemaining(profile))} left this month
                     </span>
                   </div>
+                  <a
+                    href={getManageSubscriptionUrl()}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="self-start text-xs font-medium text-indigo-500"
+                  >
+                    Manage or cancel subscription →
+                  </a>
                 </div>
               ) : (
                 <div className="flex flex-col gap-1.5">

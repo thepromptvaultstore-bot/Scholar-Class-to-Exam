@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore'
 
 export default function AuthPage() {
   const { user } = useAuthStore()
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,6 +31,12 @@ export default function AuthPage() {
         if (signUpError) throw signUpError
         setNotice('Account created. Check your email to confirm, then sign in.')
         setMode('signin')
+      } else if (mode === 'forgot') {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        })
+        if (resetError) throw resetError
+        setNotice("If an account exists for that email, we've sent a link to reset your password.")
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) throw signInError
@@ -90,34 +96,69 @@ export default function AuthPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="input-field"
           />
-          <input
-            type="password"
-            required
-            minLength={6}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="input-field"
-          />
+          {mode !== 'forgot' && (
+            <input
+              type="password"
+              required
+              minLength={6}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field"
+            />
+          )}
+
+          {mode === 'signin' && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode('forgot')
+                setError(null)
+                setNotice(null)
+              }}
+              className="-mt-1 self-end text-xs text-muted"
+            >
+              Forgot password?
+            </button>
+          )}
 
           {error && <p className="text-xs text-red-500">{error}</p>}
           {notice && <p className="text-xs text-emerald-500">{notice}</p>}
 
           <button type="submit" disabled={loading} className="btn-primary mt-1">
-            {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+            {loading
+              ? 'Please wait…'
+              : mode === 'signin'
+                ? 'Sign in'
+                : mode === 'forgot'
+                  ? 'Send reset link'
+                  : 'Create account'}
           </button>
         </form>
 
-        <button
-          onClick={() => {
-            setMode(mode === 'signin' ? 'signup' : 'signin')
-            setError(null)
-            setNotice(null)
-          }}
-          className="mt-4 w-full text-center text-xs text-muted"
-        >
-          {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-        </button>
+        {mode === 'forgot' ? (
+          <button
+            onClick={() => {
+              setMode('signin')
+              setError(null)
+              setNotice(null)
+            }}
+            className="mt-4 w-full text-center text-xs text-muted"
+          >
+            Back to sign in
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              setMode(mode === 'signin' ? 'signup' : 'signin')
+              setError(null)
+              setNotice(null)
+            }}
+            className="mt-4 w-full text-center text-xs text-muted"
+          >
+            {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+          </button>
+        )}
 
         <p className="mt-5 text-center text-[10.5px] text-muted">
           By continuing you agree to Scholar's{' '}

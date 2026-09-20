@@ -14,6 +14,15 @@ import { supabase } from './supabaseClient'
 export const SCHOLAR_PRO_PRODUCT_ID = 'scholar_pro'
 export const PLAN_MONTHLY = 'monthly'
 export const PLAN_YEARLY = 'yearly'
+const ANDROID_PACKAGE_ID = 'com.thepromptvault.scholar'
+
+// Play Billing has no in-app "cancel subscription" API — a purchase can only
+// be changed or cancelled from Play Store's own subscription-management
+// screen. This deep-links straight to this app's Scholar Pro subscription
+// there (Play Store app on Android, the Play Store website in a browser).
+export function getManageSubscriptionUrl(): string {
+  return `https://play.google.com/store/account/subscriptions?sku=${SCHOLAR_PRO_PRODUCT_ID}&package=${ANDROID_PACKAGE_ID}`
+}
 
 export interface ProPlanOption {
   planId: typeof PLAN_MONTHLY | typeof PLAN_YEARLY
