@@ -5,6 +5,7 @@ import {
   BookOpen,
   GraduationCap,
   Home,
+  ListChecks,
   Presentation,
   CalendarClock,
   GraduationCap as Logo,
@@ -19,6 +20,7 @@ const tabs = [
   { to: '/practice', label: 'Practice', icon: GraduationCap },
   { to: '/slides', label: 'Slides', icon: Presentation },
   { to: '/schedule', label: 'Schedule', icon: CalendarClock },
+  { to: '/planner', label: 'Planner', icon: ListChecks },
   { to: '/grades', label: 'Grades', icon: Award },
 ]
 

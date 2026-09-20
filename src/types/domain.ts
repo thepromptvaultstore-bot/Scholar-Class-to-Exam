@@ -96,12 +96,19 @@ export interface ClassScheduleEntry {
   location: string | null
 }
 
+// 'assignment' / 'exam' distinguish real deadlines (shown on the Planner
+// page and Home's "Due soon" widget) from a plain one-off 'reminder' —
+// purely a display/grouping hint, all three share the same due-date and
+// notification mechanics.
+export type ReminderKind = 'assignment' | 'exam' | 'reminder'
+
 export interface Reminder {
   id: string
   subjectId: string | null
   title: string
   note: string | null
   remindAt: string
+  kind: ReminderKind
   notified: boolean
   isDone: boolean
   createdAt: string

@@ -1,23 +1,18 @@
 import { useEffect, useState } from 'react'
-import { BellRing, Check, Circle, Plus, Trash2 } from 'lucide-react'
+import { Check, Circle, Plus, Trash2 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { listSubjects } from '../lib/data'
 import {
   createClassScheduleEntry,
-  createReminder,
   deleteClassScheduleEntry,
-  deleteReminder,
   listAttendedForDate,
   listClassSchedule,
-  listReminders,
   markClassAttended,
-  toggleReminderDone,
   DAY_NAMES,
   DAY_SHORT,
 } from '../lib/schedule'
-import { requestNotificationPermission } from '../lib/useReminderNotifications'
 import type { Subject } from '../types/domain'
-import type { ClassScheduleEntry, Reminder } from '../types/domain'
+import type { ClassScheduleEntry } from '../types/domain'
 
 // Deliberately local-calendar-day, NOT `.toISOString().slice(0, 10)` (which
 // is UTC): this value is stored as `attended_date` and compared against
@@ -39,6 +34,8 @@ const todayISO = () => {
 // Grades used to be a second tab bundled into this page — it's its own
 // top-level page (and nav tab) now, see GradesPage.tsx, since burying a
 // GPA calculator behind a tab inside "Timetable" made it easy to miss.
+// Reminders/assignments moved out the same way, to PlannerPage.tsx — a
+// weekly class grid and "what's due" are different mental models.
 export default function SchedulePage() {
   const { user } = useAuthStore()
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -68,7 +65,7 @@ export default function SchedulePage() {
   )
 }
 
-// --- Timetable: today agenda + full weekly grid + reminders ------------------------
+// --- Timetable: today agenda + full weekly grid ------------------------
 
 const GRID_START_HOUR = 7
 const GRID_END_HOUR = 22
@@ -82,7 +79,6 @@ function minutesFromGridStart(time: string): number {
 
 function TimetableTab({ subjects, userId }: { subjects: Subject[]; userId?: string }) {
   const [entries, setEntries] = useState<ClassScheduleEntry[]>([])
-  const [reminders, setReminders] = useState<Reminder[]>([])
   const [attendedToday, setAttendedToday] = useState<Set<string>>(new Set())
   const [now, setNow] = useState(new Date())
   const [busy, setBusy] = useState(false)
@@ -95,20 +91,9 @@ function TimetableTab({ subjects, userId }: { subjects: Subject[]; userId?: stri
   const [endTime, setEndTime] = useState('10:00')
   const [location, setLocation] = useState('')
 
-  const [showReminderForm, setShowReminderForm] = useState(false)
-  const [reminderTitle, setReminderTitle] = useState('')
-  const [reminderAt, setReminderAt] = useState('')
-  const [reminderSubject, setReminderSubject] = useState('')
-  const [reminderNote, setReminderNote] = useState('')
-
   const reload = async () => {
-    const [c, r, attended] = await Promise.all([
-      listClassSchedule(),
-      listReminders(),
-      listAttendedForDate(todayISO()),
-    ])
+    const [c, attended] = await Promise.all([listClassSchedule(), listAttendedForDate(todayISO())])
     setEntries(c)
-    setReminders(r)
     setAttendedToday(attended)
   }
 
@@ -156,40 +141,6 @@ function TimetableTab({ subjects, userId }: { subjects: Subject[]; userId?: stri
     }
   }
 
-  const handleAddReminder = async () => {
-    if (!userId || !reminderTitle.trim() || !reminderAt) return
-    setBusy(true)
-    try {
-      requestNotificationPermission()
-      await createReminder(
-        userId,
-        reminderTitle.trim(),
-        new Date(reminderAt).toISOString(),
-        reminderSubject || null,
-        reminderNote.trim(),
-      )
-      setReminderTitle('')
-      setReminderAt('')
-      setReminderNote('')
-      setShowReminderForm(false)
-      await reload()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not add reminder.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleToggleDone = async (r: Reminder) => {
-    await toggleReminderDone(r.id, !r.isDone)
-    await reload()
-  }
-
-  const handleDeleteReminder = async (id: string) => {
-    await deleteReminder(id)
-    await reload()
-  }
-
   const todayDow = now.getDay()
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const todaysClasses = entries
@@ -199,8 +150,6 @@ function TimetableTab({ subjects, userId }: { subjects: Subject[]; userId?: stri
   const nextUpId = todaysClasses.find((e) => minutesFromGridStart(e.startTime) + GRID_START_HOUR * 60 > nowMinutes)?.id
 
   const byDay = DAY_NAMES.map((_, d) => entries.filter((e) => e.dayOfWeek === d))
-  const activeReminders = reminders.filter((r) => !r.isDone)
-  const doneReminders = reminders.filter((r) => r.isDone)
 
   return (
     <div className="flex flex-col gap-6">
@@ -421,121 +370,6 @@ function TimetableTab({ subjects, userId }: { subjects: Subject[]; userId?: stri
         )}
       </section>
 
-      {/* Reminders */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
-            <BellRing size={15} /> Reminders
-          </h2>
-          <span className="text-[11px] text-muted">Alerts while the app is open</span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          {activeReminders.length === 0 && <p className="text-xs text-muted">No upcoming reminders.</p>}
-          {activeReminders.map((r) => (
-            <div key={r.id} className="glass-card flex items-center gap-3 rounded-2xl p-2.5">
-              <button
-                onClick={() => handleToggleDone(r)}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-black/15 dark:border-white/20"
-                aria-label="Mark done"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{r.title}</p>
-                <p className="text-xs text-muted">
-                  {new Date(r.remindAt).toLocaleString()}
-                  {r.subjectId ? ` · ${subjectName(r.subjectId)}` : ''}
-                </p>
-              </div>
-              <button
-                onClick={() => handleDeleteReminder(r.id)}
-                className="p-1 text-muted hover:text-red-500"
-                aria-label="Delete reminder"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
-          {doneReminders.length > 0 && (
-            <details className="mt-1">
-              <summary className="cursor-pointer text-xs text-muted">{doneReminders.length} completed</summary>
-              <div className="mt-1.5 flex flex-col gap-1.5">
-                {doneReminders.map((r) => (
-                  <div key={r.id} className="glass-card flex items-center gap-3 rounded-2xl p-2.5 opacity-60">
-                    <Check size={15} className="shrink-0 text-emerald-500" />
-                    <p className="min-w-0 flex-1 truncate text-sm line-through">{r.title}</p>
-                    <button
-                      onClick={() => handleDeleteReminder(r.id)}
-                      className="p-1 text-muted hover:text-red-500"
-                      aria-label="Delete reminder"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-
-          {!showReminderForm ? (
-            <button onClick={() => setShowReminderForm(true)} className="btn-secondary">
-              <Plus size={16} /> Add a reminder
-            </button>
-          ) : (
-            <div className="glass-card flex flex-col gap-2 rounded-2xl p-3">
-              <input
-                value={reminderTitle}
-                onChange={(e) => setReminderTitle(e.target.value)}
-                placeholder="e.g. Essay due, Exam study session"
-                className="input-field"
-              />
-              <input
-                type="datetime-local"
-                value={reminderAt}
-                onChange={(e) => setReminderAt(e.target.value)}
-                className="input-field"
-              />
-              <select
-                value={reminderSubject}
-                onChange={(e) => setReminderSubject(e.target.value)}
-                className="input-field"
-              >
-                <option value="">No specific course</option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <textarea
-                value={reminderNote}
-                onChange={(e) => setReminderNote(e.target.value)}
-                placeholder="Note (optional)"
-                rows={2}
-                className="input-field resize-none"
-              />
-              <div className="flex gap-2">
-                <button
-                  disabled={busy || !reminderTitle.trim() || !reminderAt}
-                  onClick={handleAddReminder}
-                  className="btn-primary flex-1"
-                >
-                  Add
-                </button>
-                <button onClick={() => setShowReminderForm(false)} className="btn-secondary flex-1">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <div className="flex justify-center">
-        {'Notification' in window && Notification.permission !== 'granted' && (
-          <button onClick={requestNotificationPermission} className="text-xs font-medium text-indigo-500">
-            Enable browser notifications for reminders
-          </button>
-        )}
-      </div>
     </div>
   )
 }

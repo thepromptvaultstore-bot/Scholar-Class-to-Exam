@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Flame, Plus, Shield, Sparkles, Trophy } from 'lucide-react'
+import { AlertCircle, BookOpen, Flame, ListChecks, Plus, Shield, Sparkles, Trophy } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { getProfile, listSemesters, listSubjects, listNotes } from '../lib/data'
+import { listReminders } from '../lib/schedule'
 import {
   ALL_DAYS_MASK,
   applyStreakFreezeIfNeeded,
@@ -16,14 +17,29 @@ import {
   spendStreakFreezeToday,
 } from '../lib/gamification'
 import { LEAGUE_TIERS, type BadgeDef } from '../types/gamification'
-import type { Semester, Subject, Note, Profile } from '../types/domain'
+import type { Semester, Subject, Note, Profile, Reminder } from '../types/domain'
 import type { LevelInfo, SubjectKnowledge } from '../types/gamification'
+
+// Compact single-line version of PlannerPage's dueLabel — just enough to
+// tell "overdue" from "today" from "later" at a glance in a 2-3 item widget.
+function dueSoonLabel(remindAt: string, now: Date): { text: string; overdue: boolean } {
+  const due = new Date(remindAt)
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const diffDays = Math.round((dueDay.getTime() - today.getTime()) / 86_400_000)
+  const time = due.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  if (diffDays < 0) return { text: 'Overdue', overdue: true }
+  if (diffDays === 0) return { text: `Today, ${time}`, overdue: false }
+  if (diffDays === 1) return { text: `Tomorrow, ${time}`, overdue: false }
+  return { text: due.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }), overdue: false }
+}
 
 export default function HomePage() {
   const { user } = useAuthStore()
   const [semesters, setSemesters] = useState<Semester[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [recentNotes, setRecentNotes] = useState<Note[]>([])
+  const [dueSoon, setDueSoon] = useState<Reminder[]>([])
   const [levelInfo, setLevelInfo] = useState<LevelInfo | null>(null)
   const [streak, setStreak] = useState(0)
   const [todayXp, setTodayXp] = useState(0)
@@ -40,13 +56,14 @@ export default function HomePage() {
     async function load() {
       try {
         const profilePromise = user ? getProfile(user.id, user.email ?? null) : Promise.resolve(null)
-        const [s, subj, notes, level, xpToday, p] = await Promise.all([
+        const [s, subj, notes, level, xpToday, p, reminders] = await Promise.all([
           listSemesters(),
           listSubjects(),
           listNotes(),
           getLevelInfo(),
           getTodayXp(),
           profilePromise,
+          listReminders(),
         ])
         if (cancelled) return
         setSemesters(s)
@@ -55,6 +72,12 @@ export default function HomePage() {
         setLevelInfo(level)
         setTodayXp(xpToday)
         if (p) setProfile(p)
+        setDueSoon(
+          reminders
+            .filter((r) => !r.isDone)
+            .sort((a, b) => a.remindAt.localeCompare(b.remindAt))
+            .slice(0, 3),
+        )
         // Which weekdays count toward the streak — a day outside this mask
         // (e.g. a day with no class) needs no activity to keep it alive.
         const mask = p?.streakActiveDaysMask ?? ALL_DAYS_MASK
@@ -272,6 +295,43 @@ export default function HomePage() {
 
       {loadError && (
         <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-500">{loadError}</p>
+      )}
+
+      {dueSoon.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
+              <ListChecks size={15} /> Due soon
+            </h2>
+            <Link to="/planner" className="text-xs font-medium text-indigo-500">
+              See all
+            </Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {dueSoon.map((r) => {
+              const { text, overdue } = dueSoonLabel(r.remindAt, new Date())
+              return (
+                <Link
+                  key={r.id}
+                  to="/planner"
+                  className="glass-card flex items-center gap-3 rounded-2xl p-3 transition-transform hover:-translate-y-0.5"
+                >
+                  {overdue ? (
+                    <AlertCircle size={16} className="shrink-0 text-red-500" />
+                  ) : (
+                    <ListChecks size={16} className="shrink-0 text-indigo-500" />
+                  )}
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-white">
+                    {r.title}
+                  </p>
+                  <span className={`shrink-0 text-xs font-medium ${overdue ? 'text-red-500' : 'text-muted'}`}>
+                    {text}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
       )}
 
       <section>

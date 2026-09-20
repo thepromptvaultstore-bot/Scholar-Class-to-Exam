@@ -12,6 +12,7 @@ import PracticeSetPage from './pages/PracticeSetPage'
 import SlidesPage from './pages/SlidesPage'
 import SlideDeckPage from './pages/SlideDeckPage'
 import SchedulePage from './pages/SchedulePage'
+import PlannerPage from './pages/PlannerPage'
 import GradesPage from './pages/GradesPage'
 import ProfilePage from './pages/ProfilePage'
 import LeaguePage from './pages/LeaguePage'
@@ -48,6 +49,7 @@ function App() {
                   <Route path="/slides" element={<SlidesPage />} />
                   <Route path="/slides/:id" element={<SlideDeckPage />} />
                   <Route path="/schedule" element={<SchedulePage />} />
+                  <Route path="/planner" element={<PlannerPage />} />
                   <Route path="/grades" element={<GradesPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/league" element={<LeaguePage />} />

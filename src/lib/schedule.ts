@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient'
 import { awardClassAttended } from './gamification'
-import type { ClassScheduleEntry, Reminder } from '../types/domain'
+import type { ClassScheduleEntry, Reminder, ReminderKind } from '../types/domain'
 
 const scheduleFromRow = (r: Record<string, unknown>): ClassScheduleEntry => ({
   id: r.id as string,
@@ -17,6 +17,7 @@ const reminderFromRow = (r: Record<string, unknown>): Reminder => ({
   title: r.title as string,
   note: (r.note as string) ?? null,
   remindAt: r.remind_at as string,
+  kind: (r.kind as Reminder['kind']) ?? 'reminder',
   notified: r.notified as boolean,
   isDone: r.is_done as boolean,
   createdAt: r.created_at as string,
@@ -94,6 +95,7 @@ export async function createReminder(
   remindAt: string,
   subjectId?: string | null,
   note?: string,
+  kind: ReminderKind = 'reminder',
 ): Promise<Reminder> {
   const { data, error } = await supabase
     .from('reminders')
@@ -103,6 +105,7 @@ export async function createReminder(
       remind_at: remindAt,
       subject_id: subjectId || null,
       note: note || null,
+      kind,
     })
     .select()
     .single()
